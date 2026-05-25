@@ -1,0 +1,11 @@
+{
+  "name": "kyomatos-frontend",
+  "version": "1.0.0",
+  "description": "Event ticketing platform - Frontend",
+  "main": "index.html",
+  "scripts": {
+    "dev": "open index.html",
+    "start": "open index.html"
+  },
+  "dependencies": {}
+}
