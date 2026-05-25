@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Ticket - Kyomatos</title>
+    <link rel="stylesheet" href="style.css?v=1">
+    <link rel="stylesheet" href="header.css?v=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .ticket-container {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        
+        .ticket-preview {
+            background: #1a1a1a;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(123, 47, 190, 0.15);
+            text-align: center;
+            border: 1px solid rgba(123, 47, 190, 0.2);
+        }
+
+        .ticket-preview h2 {
+            background: linear-gradient(135deg, #7B2FBE 0%, #C724B1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+        
+        .ticket-qr {
+            margin: 30px 0;
+            padding: 20px;
+            background: #0d0d0d;
+            border-radius: 12px;
+            border: 1px solid rgba(123, 47, 190, 0.2);
+            display: inline-block;
+        }
+        
+        .ticket-qr img {
+            width: 250px;
+            height: 250px;
+            border-radius: 8px;
+        }
+        
+        .ticket-info {
+            margin: 30px 0;
+            text-align: left;
+            background: #0d0d0d;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid rgba(123, 47, 190, 0.2);
+        }
+        
+        .ticket-info h3 {
+            background: linear-gradient(135deg, #7B2FBE 0%, #C724B1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .ticket-info p {
+            margin: 12px 0;
+            color: #b0b0b0;
+            line-height: 1.6;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #7B2FBE 0%, #C724B1 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(123, 47, 190, 0.3);
+        }
+
+        .btn-primary::after {
+            content: '→';
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(123, 47, 190, 0.5);
+        }
+        
+        .btn-secondary {
+            background: rgba(123, 47, 190, 0.15);
+            border: 1px solid rgba(123, 47, 190, 0.3);
+            color: #7B2FBE;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(123, 47, 190, 0.25);
+            border-color: #7B2FBE;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <div class="brand-logo">K</div>
+                <span class="brand-text">Kyomatos</span>
+            </a>
+            <button class="menu-toggle" id="menuToggle">
+                <span class="menu-icon">☰</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="index.html#events" class="nav-link">
+                        <span class="nav-icon">📅</span>
+                        Events
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="contact.html" class="nav-link">
+                        <span class="nav-icon">📞</span>
+                        Contact
+                    </a>
+                </li>
+                <li class="nav-item auth-buttons" id="authButtons">
+                    <button class="btn btn-outline" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary" onclick="window.location.href='login.html'">Sign Up</button>
+                </li>
+                <li class="nav-item user-menu" id="userMenu" style="display: none;">
+                    <div class="user-avatar" id="userAvatar">JD</div>
+                    <a href="my-tickets.html" class="btn btn-outline">My Tickets</a>
+                    <button class="btn btn-outline" onclick="logout()">Logout</button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="ticket-container">
+        <div class="ticket-preview">
+            <h2>Your Ticket</h2>
+            <div class="ticket-qr" id="qrCode">
+                <!-- QR code will be generated here -->
+            </div>
+            
+            <div class="ticket-info">
+                <h3>Ticket Details</h3>
+                <p><strong>Ticket ID:</strong> <span id="ticketId">Loading...</span></p>
+                <p><strong>Event:</strong> <span id="eventTitle">Loading...</span></p>
+                <p><strong>Attendee:</strong> <span id="attendeeName">Loading...</span></p>
+                <p><strong>Email:</strong> <span id="attendeeEmail">Loading...</span></p>
+                <p><strong>Status:</strong> <span id="ticketStatus" class="status">Valid</span></p>
+            </div>
+            
+            <div class="action-buttons">
+                <a href="#" id="downloadBtn" class="btn-primary">Download Ticket</a>
+                <a href="my-tickets.html" class="btn-secondary">Back to My Tickets</a>
+            </div>
+            
+            <div style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                <p>🎫 Present this QR code at the event entrance for scanning</p>
+                <p>⏰ Please arrive 30 minutes before the event starts</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <!-- Same footer as other pages -->
+    </footer>
+
+    <script>
+        function updateNavigation() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const authButtons = document.getElementById('authButtons');
+            const userMenu = document.getElementById('userMenu');
+            const userAvatar = document.getElementById('userAvatar');
+
+            if (!authButtons || !userMenu || !userAvatar) return;
+
+            if (currentUser) {
+                authButtons.style.display = 'none';
+                userMenu.style.display = 'flex';
+                const initials = currentUser.username ? currentUser.username.split(' ').map(n => n[0]).join('').toUpperCase() : currentUser.email[0].toUpperCase();
+                userAvatar.textContent = initials;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('jwt_token');
+            window.location.href = 'index.html';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            const navMenu = document.getElementById('navMenu');
+            if (menuToggle && navMenu) {
+                menuToggle.addEventListener('click', () => {
+                    navMenu.classList.toggle('active');
+                    menuToggle.textContent = navMenu.classList.contains('active') ? '✕' : '☰';
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+                        navMenu.classList.remove('active');
+                        menuToggle.textContent = '☰';
+                    }
+                });
+            }
+
+            updateNavigation();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const ticketId = urlParams.get('id');
+            
+            if (!ticketId) {
+                window.location.href = 'my-tickets.html';
+                return;
+            }
+            
+            const userTickets = JSON.parse(localStorage.getItem('userTickets') || '[]');
+            const ticket = userTickets.find(t => (t.ticketId || t.id) === ticketId);
+            
+            if (ticket) {
+                const ticketIdValue = ticket.ticketId || ticket.id;
+                const ticketTitle = ticket.event?.title || ticket.title || 'Event';
+                const attendeeName = ticket.attendee?.fullName || ticket.attendeeName || '';
+                const attendeeEmail = ticket.attendee?.email || ticket.attendeeEmail || '';
+
+                document.getElementById('ticketId').textContent = ticketIdValue;
+                document.getElementById('eventTitle').textContent = ticketTitle;
+                document.getElementById('attendeeName').textContent = attendeeName;
+                document.getElementById('attendeeEmail').textContent = attendeeEmail;
+                
+                const qrCodeDiv = document.getElementById('qrCode');
+                qrCodeDiv.innerHTML = `
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(ticketIdValue)}" 
+                         alt="Ticket QR Code">
+                `;
+                
+                const baseURL = typeof API_CONFIG !== 'undefined' ? API_CONFIG.baseURL : 'http://localhost:5000';
+                document.getElementById('downloadBtn').href = ticket.downloadUrl || `${baseURL}/api/tickets/download/${ticketIdValue}`;
+            } else {
+                document.querySelector('.ticket-preview').innerHTML = `
+                    <h2>Ticket Not Found</h2>
+                    <p>The requested ticket could not be found.</p>
+                    <a href="my-tickets.html" class="btn-primary">Back to My Tickets</a>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

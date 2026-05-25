@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kyomatos - Book Your Tickets</title>
+    <link rel="stylesheet" href="style.css?v=1" />
+    <link rel="stylesheet" href="header.css?v=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- New Mobile-friendly Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <div class="brand-logo">K</div>
+                <span class="brand-text">Kyomatos</span>
+            </a>
+            
+            <button class="menu-toggle" id="menuToggle">
+                <span class="menu-icon">☰</span>
+            </button>
+            
+            <ul class="nav-menu" id="navMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link active">
+                        <span class="nav-icon">🏠</span>
+                        Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#events" class="nav-link">
+                        <span class="nav-icon">📅</span>
+                        Events
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="contact.html" class="nav-link">
+                        <span class="nav-icon">📞</span>
+                        Contact
+                    </a>
+                </li>
+                
+                <li class="nav-item auth-buttons" id="authButtons">
+                    <button class="btn btn-outline" onclick="window.location.href='login.html'">
+                        Login
+                    </button>
+                    <button class="btn btn-primary" onclick="window.location.href='login.html'">
+                        Sign Up
+                    </button>
+                </li>
+                
+                <!-- This will be shown when user is logged in -->
+                <li class="nav-item user-menu" id="userMenu" style="display: none;">
+                    <div class="user-avatar" id="userAvatar">JD</div>
+                    <a href="my-tickets.html" class="btn btn-outline">
+                        My Tickets
+                    </a>
+                    <button class="btn btn-outline" onclick="logout()">
+                        Logout
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h2>Find and Book Events Easily</h2>
+            <p>Your one-stop platform for concerts, festivals, and conferences.</p>
+            <div class="search-box">
+                <span class='search-icon'>🔍</span>
+                <input type="text" id="search" placeholder="Search events..." />
+            </div>
+        </div>
+    </section>
+
+    <section id="events" class="events">
+        <div class="container">
+            <h3>Upcoming Events</h3>
+            <div id="eventList" class="event-grid"></div>
+        </div>
+    </section>
+
+    <section class="contact-preview">
+        <div class="container contact-preview-content">
+            <div>
+                <h3>Need help or have a question?</h3>
+                <p>Our team is here to support you with ticket bookings, event details, and more.</p>
+            </div>
+            <button class="btn btn-primary" onclick="window.location.href='contact.html'">Contact Us</button>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-brand">
+                <h2>Kyomatos</h2>
+                <p>Your one-stop platform for events, concerts, and festivals.</p>
+            </div>
+            <div class="footer-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="#events">Events</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-social">
+                <h3>Follow Us</h3>
+                <div class="social-icons">
+                    <a href="#">Facebook</a>
+                    <a href="#">Twitter</a>
+                    <a href="#">Instagram</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Kyomatos. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+    <script>
+        // Mobile menu toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const navMenu = document.getElementById('navMenu');
+        
+        menuToggle.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            menuToggle.textContent = navMenu.classList.contains('active')
+                ? '✕'
+                : '☰';
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+                navMenu.classList.remove('active');
+                menuToggle.textContent = '☰';
+            }
+        });
+        
+        // Check login status
+        function checkAuth() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const authButtons = document.getElementById('authButtons');
+            const userMenu = document.getElementById('userMenu');
+            const userAvatar = document.getElementById('userAvatar');
+
+            if (!authButtons || !userMenu || !userAvatar) {
+                return;
+            }
+            
+            if (currentUser) {
+                authButtons.style.display = 'none';
+                userMenu.style.display = 'flex';
+                
+                // Set avatar initials
+                const initials = currentUser.username
+                    ? currentUser.username.split(' ').map(n => n[0]).join('').toUpperCase()
+                    : currentUser.email[0].toUpperCase();
+                userAvatar.textContent = initials;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('jwt_token');
+            window.location.href = 'index.html';
+        }
+        
+        // Run on page load
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>
