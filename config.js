@@ -19,8 +19,8 @@ const API_CONFIG = {
     // ======================================
     
     if (window.location.hostname.includes('netlify.app')) {
-      // Replace with your actual deployed backend URL
-      return 'http://localhost:5000'; // Change this to your production backend URL
+      // Production backend on Render
+      return 'https://kyomatos-backend.onrender.com';
     }
     
     // Default fallback
