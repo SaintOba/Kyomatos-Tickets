@@ -181,8 +181,11 @@ async function initializePayment(ticket, quantity, userInfo) {
 async function verifyPayment(reference) {
     try {
         const response = await fetch(`${API_CONFIG.baseURL}/api/pay/verify?reference=${reference}`);
-        return await response.json();
+        const data = await response.json();
+        console.log('Payment verification response:', data);
+        return data;
     } catch (error) {
+        console.error('Payment verification error:', error);
         return {
             success: false,
             message: 'Payment verification failed'
@@ -345,17 +348,37 @@ window.addEventListener('load', () => {
     
     if (reference || trxref) {
         const paymentRef = reference || trxref;
+        console.log('Payment reference found:', paymentRef);
+        
         verifyPayment(paymentRef).then(result => {
+            console.log('Verification result:', result);
+            
             if (result.success) {
-                // Store tickets
+                // Store tickets if they exist
                 if (result.tickets && result.tickets.length > 0) {
+                    console.log('Storing tickets:', result.tickets);
                     const userTickets = JSON.parse(localStorage.getItem('userTickets') || '[]');
                     userTickets.push(...result.tickets);
                     localStorage.setItem('userTickets', JSON.stringify(userTickets));
-                    window.location.href = 'my-tickets.html?payment=success';
-                    return;
+                    
+                    // Redirect to tickets page
+                    setTimeout(() => {
+                        window.location.href = 'my-tickets.html?payment=success';
+                    }, 1000);
+                } else {
+                    console.log('No tickets in response');
+                    alert('Payment successful! Your tickets will be available shortly.');
+                    setTimeout(() => {
+                        window.location.href = 'my-tickets.html?payment=success';
+                    }, 2000);
                 }
+            } else {
+                console.error('Payment verification failed:', result.message);
+                alert('Payment verification failed: ' + (result.message || 'Unknown error'));
             }
+        }).catch(error => {
+            console.error('Payment verification error:', error);
+            alert('Error verifying payment. Please contact support.');
         });
     }
 });
