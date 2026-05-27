@@ -18,6 +18,7 @@ process.on('uncaughtException', (err) => {
 });
 
 const app = express();
+app.set('trust proxy', true);
 
 // Middleware
 app.use(cors());
@@ -382,9 +383,9 @@ function generateProfessionalPDFTicket(ticket) {
 // Paystack: Initialize payment
 app.post("/api/pay/initialize", async (req, res) => {
   try {
-    const { email, amount, eventId, quantity, metadata } = req.body;
-
-    const callbackUrl = `${BACKEND_URL}/api/pay/verify?frontend=true`;
+    const { email, amount, eventId, quantity, metadata, frontendUrl } = req.body;
+    const effectiveBackendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
+    const callbackUrl = `${effectiveBackendUrl}/api/pay/verify?frontend=true`;
 
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
@@ -395,6 +396,7 @@ app.post("/api/pay/initialize", async (req, res) => {
         metadata: {
           eventId,
           quantity,
+          frontendUrl,
           ...metadata,
         },
       },
@@ -414,6 +416,7 @@ app.post("/api/pay/initialize", async (req, res) => {
       eventId,
       quantity,
       metadata,
+      frontendUrl,
       createdAt: new Date(),
     });
 
@@ -464,12 +467,18 @@ app.get("/api/pay/verify", async (req, res) => {
 
     if (response.data.data.status === "success") {
       const paymentData = pendingPayments.get(reference);
+      const paystackData = response.data.data;
+      const paystackMetadata = paystackData.metadata || {};
+      const frontendOrigin = paymentData?.frontendUrl || paystackMetadata.frontendUrl || FRONTEND_URL;
+      const eventId = paymentData?.eventId || paystackMetadata.eventId;
 
       if (isFrontendCallback) {
-        const redirectParams = paymentData?.eventId
-          ? `?id=${encodeURIComponent(paymentData.eventId)}&reference=${reference}`
+        const redirectParams = eventId
+          ? `?id=${encodeURIComponent(eventId)}&reference=${reference}`
           : `?reference=${reference}`;
-        return res.redirect(`${FRONTEND_URL}/about.html${redirectParams}`);
+
+        const finalFrontendUrl = frontendOrigin || FRONTEND_URL;
+        return res.redirect(`${finalFrontendUrl}/about.html${redirectParams}`);
       }
 
       if (paymentData) {
@@ -485,23 +494,21 @@ app.get("/api/pay/verify", async (req, res) => {
       }
 
       // Fallback: reconstruct payment details from Paystack metadata if memory was lost
-      const paystackData = response.data.data;
-      const metadata = paystackData.metadata || {};
-      const fallbackEmail = paystackData.customer?.email || metadata.email || "unknown@example.com";
+      const fallbackEmail = paystackData.customer?.email || paystackMetadata.email || "unknown@example.com";
       const fallbackPaymentData = {
         email: fallbackEmail,
         amount: (paystackData.amount || 0) / 100,
-        eventId: metadata.eventId || null,
-        quantity: metadata.quantity || 1,
+        eventId: paystackMetadata.eventId || null,
+        quantity: paystackMetadata.quantity || 1,
         metadata: {
-          eventTitle: metadata.eventTitle || metadata.event_name || "Event",
-          eventDate: metadata.eventDate || metadata.event_date || "TBA",
-          eventTime: metadata.eventTime || metadata.event_time || "TBA",
-          eventLocation: metadata.eventLocation || metadata.event_location || "TBA",
-          ticketType: metadata.ticketType || "standard",
-          attendeeName: metadata.attendeeName || metadata.customer_name || fallbackEmail.split("@")[0],
-          attendeePhone: metadata.attendeePhone || metadata.customer_phone || "",
-          paymentReference: metadata.paymentReference || paystackData.reference,
+          eventTitle: paystackMetadata.eventTitle || paystackMetadata.event_name || "Event",
+          eventDate: paystackMetadata.eventDate || paystackMetadata.event_date || "TBA",
+          eventTime: paystackMetadata.eventTime || paystackMetadata.event_time || "TBA",
+          eventLocation: paystackMetadata.eventLocation || paystackMetadata.event_location || "TBA",
+          ticketType: paystackMetadata.ticketType || "standard",
+          attendeeName: paystackMetadata.attendeeName || paystackMetadata.customer_name || fallbackEmail.split("@")[0],
+          attendeePhone: paystackMetadata.attendeePhone || paystackMetadata.customer_phone || "",
+          paymentReference: paystackMetadata.paymentReference || paystackData.reference,
         },
       };
 
@@ -519,11 +526,13 @@ app.get("/api/pay/verify", async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Payment verification error:", error);
-    res.status(500).json({
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.message || error.message || "Payment verification failed";
+    console.error("Payment verification error:", errorMessage, error.response?.data || error.stack || error);
+    res.status(statusCode).json({
       success: false,
-      message: "Payment verification failed",
-      error: error.response?.data?.message || error.message,
+      message: errorMessage,
+      error: error.response?.data || error.message,
     });
   }
 });

@@ -147,6 +147,7 @@ async function initializePayment(ticket, quantity, userInfo) {
                 amount: ticket.price * quantity,
                 eventId: ticket.id,
                 quantity: quantity,
+                frontendUrl: window.location.origin,
                 metadata: {
                     eventTitle: ticket.title,
                     eventDate: ticket.date,
