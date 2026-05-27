@@ -34,6 +34,7 @@ const PAYSTACK_SECRET_KEY =
   process.env.PAYSTACK_SECRET_KEY || "sk_test_your_key_here";
 const PAYSTACK_PUBLIC_KEY =
   process.env.PAYSTACK_PUBLIC_KEY || "pk_test_your_key_here";
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5000";
 
 // Generate professional ticket design (Concert Ticket Layout)
@@ -374,7 +375,7 @@ app.post("/api/pay/initialize", async (req, res) => {
   try {
     const { email, amount, eventId, quantity, metadata } = req.body;
 
-    const callbackUrl = `${FRONTEND_URL}/about.html?id=${encodeURIComponent(eventId)}`;
+    const callbackUrl = `${BACKEND_URL}/api/pay/verify?frontend=true`;
 
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
@@ -433,7 +434,8 @@ app.post("/api/pay/initialize", async (req, res) => {
 // Paystack: Verify payment
 app.get("/api/pay/verify", async (req, res) => {
   try {
-    const { reference } = req.query;
+    const reference = req.query.reference || req.query.trxref;
+    const isFrontendCallback = req.query.frontend === "true";
 
     if (!reference) {
       return res.status(400).json({
@@ -453,6 +455,13 @@ app.get("/api/pay/verify", async (req, res) => {
 
     if (response.data.data.status === "success") {
       const paymentData = pendingPayments.get(reference);
+
+      if (isFrontendCallback) {
+        const redirectParams = paymentData?.eventId
+          ? `?id=${encodeURIComponent(paymentData.eventId)}&reference=${reference}`
+          : `?reference=${reference}`;
+        return res.redirect(`${FRONTEND_URL}/about.html${redirectParams}`);
+      }
 
       if (paymentData) {
         const tickets = await generateTicketsAfterPayment(paymentData);

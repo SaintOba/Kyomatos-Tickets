@@ -165,6 +165,7 @@ async function initializePayment(ticket, quantity, userInfo) {
         if (data.success) {
             // Redirect to Paystack payment page
             window.location.href = data.data.authorization_url;
+            return data;
         } else {
             throw new Error(data.message || 'Payment initialization failed');
         }
@@ -330,11 +331,11 @@ async function handlePayment(ticket, quantity) {
         phone: currentUser.phone || ''
     });
     
-    if (!result.success) {
+    if (!result || result.success === false) {
         statusEl.innerHTML = `
             <div class="payment-error">
                 <i class='bx bx-error'></i>
-                <p>${result.message}</p>
+                <p>${result?.message || 'Unable to initialize payment'}</p>
             </div>
         `;
     }
