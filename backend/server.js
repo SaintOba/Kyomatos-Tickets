@@ -8,6 +8,15 @@ const axios = require("axios");
 const sendEmail = require("./utils/sendEmail");
 require("dotenv").config();
 
+// Global error handlers to avoid process exit on unhandled errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
 const app = express();
 
 // Middleware
