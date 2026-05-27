@@ -473,12 +473,36 @@ app.get("/api/pay/verify", async (req, res) => {
           payment: response.data.data,
           tickets: tickets,
         });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: "Payment data not found",
-        });
       }
+
+      // Fallback: reconstruct payment details from Paystack metadata if memory was lost
+      const paystackData = response.data.data;
+      const metadata = paystackData.metadata || {};
+      const fallbackEmail = paystackData.customer?.email || metadata.email || "unknown@example.com";
+      const fallbackPaymentData = {
+        email: fallbackEmail,
+        amount: (paystackData.amount || 0) / 100,
+        eventId: metadata.eventId || null,
+        quantity: metadata.quantity || 1,
+        metadata: {
+          eventTitle: metadata.eventTitle || metadata.event_name || "Event",
+          eventDate: metadata.eventDate || metadata.event_date || "TBA",
+          eventTime: metadata.eventTime || metadata.event_time || "TBA",
+          eventLocation: metadata.eventLocation || metadata.event_location || "TBA",
+          ticketType: metadata.ticketType || "standard",
+          attendeeName: metadata.attendeeName || metadata.customer_name || fallbackEmail.split("@")[0],
+          attendeePhone: metadata.attendeePhone || metadata.customer_phone || "",
+          paymentReference: metadata.paymentReference || paystackData.reference,
+        },
+      };
+
+      const tickets = await generateTicketsAfterPayment(fallbackPaymentData);
+      res.json({
+        success: true,
+        message: "Payment verified successfully (reconstructed from Paystack metadata)",
+        payment: response.data.data,
+        tickets: tickets,
+      });
     } else {
       res.status(400).json({
         success: false,
