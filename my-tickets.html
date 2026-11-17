@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tickets - Kyomatos</title>
+    <link rel="stylesheet" href="style.css?v=1">
+    <link rel="stylesheet" href="header.css?v=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .tickets-container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 0 20px;
+        }
+        
+        .tickets-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .tickets-header h2 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #CC1100 0%, #E8200C 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+
+        .tickets-header p {
+            color: #b0b0b0;
+            font-size: 1.05rem;
+        }
+        
+        .tickets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        .ticket-card {
+            background: #1a1a1a;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(204, 17, 0, 0.15);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(204, 17, 0, 0.2);
+        }
+        
+        .ticket-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(204, 17, 0, 0.25);
+            border-color: rgba(204, 17, 0, 0.4);
+        }
+        
+        .ticket-card h3 {
+            background: linear-gradient(135deg, #CC1100 0%, #E8200C 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+        
+        .ticket-info {
+            margin: 15px 0;
+            color: #b0b0b0;
+        }
+        
+        .ticket-info p {
+            margin: 8px 0;
+        }
+        
+        .ticket-qr {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #141414;
+            border-radius: 8px;
+        }
+        
+        .ticket-qr img {
+            width: 150px;
+            height: 150px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+        
+        .ticket-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-download {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-download:hover {
+            background: #059669;
+        }
+        
+        .btn-view {
+            background: #E8200C;
+            color: white;
+        }
+        
+        .btn-view:hover {
+            background: #CC1100;
+        }
+        
+        .btn-home {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-home:hover {
+            background: #4b5563;
+        }
+        
+        .no-tickets {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .no-tickets h3 {
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        
+        .ticket-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .ticket-id {
+            font-family: monospace;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .tickets-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .ticket-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+        .btn-whatsapp {
+        background: #25D366;
+        color: white;
+        }
+
+        .btn-whatsapp:hover {
+        background: #128C7E;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="brand.css?v=1" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-brand">
+                <div class="brand-logo">K</div>
+                <span class="brand-text">Kyomatos</span>
+            </a>
+            <button class="menu-toggle" id="menuToggle">
+                <span class="menu-icon">☰</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="index.html#events" class="nav-link">
+                        <span class="nav-icon">📅</span>
+                        Events
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="contact.html" class="nav-link">
+                        <span class="nav-icon">📞</span>
+                        Contact
+                    </a>
+                </li>
+                <li class="nav-item auth-buttons" id="authButtons">
+                    <button class="btn btn-outline" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary" onclick="window.location.href='login.html'">Sign Up</button>
+                </li>
+                <li class="nav-item user-menu" id="userMenu" style="display: none;">
+                    <div class="user-avatar" id="userAvatar">JD</div>
+                    <a href="my-tickets.html" class="btn btn-outline">My Tickets</a>
+                    <button class="btn btn-outline" onclick="logout()">Logout</button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="tickets-container">
+        <div class="tickets-header">
+            <h2>My Tickets</h2>
+            <p>All your purchased tickets in one place</p>
+        </div>
+        
+        <div id="ticketsList" class="tickets-grid">
+            <!-- Tickets will be loaded here -->
+        </div>
+        
+        <div id="noTickets" class="no-tickets" style="display: none;">
+            <h3>No tickets yet</h3>
+            <p>You haven't purchased any tickets yet.</p>
+            <p>Browse events and book your tickets!</p>
+            <div style="margin-top: 30px;">
+                <a href="index.html" class="btn btn-home">Browse Events</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-brand">
+                <h2>Kyomatos</h2>
+                <p>Your one-stop platform for events, concerts, and festivals.</p>
+            </div>
+            <div class="footer-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="index.html#events">Events</a></li>
+                    <li><a href="my-tickets.html">My Tickets</a></li>
+                </ul>
+            </div>
+            <div class="footer-social">
+                <h3>Follow Us</h3>
+                <div class="social-icons">
+                    <a href="#"><i class='bx bxl-facebook'></i></a>
+                    <a href="#"><i class='bx bxl-twitter'></i></a>
+                    <a href="#"><i class='bx bxl-instagram'></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Kyomatos. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="config.js"></script>
+    <script src="nav.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            const navMenu = document.getElementById('navMenu');
+            if (menuToggle && navMenu) {
+                menuToggle.addEventListener('click', () => {
+                    navMenu.classList.toggle('active');
+                    menuToggle.textContent = navMenu.classList.contains('active') ? '✕' : '☰';
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!navMenu.contains(e.target) && !menuToggle.contains(e.target)) {
+                        navMenu.classList.remove('active');
+                        menuToggle.textContent = '☰';
+                    }
+                });
+            }
+
+            loadUserTickets();
+            
+            // Update navigation based on login status
+            updateNavigation();
+        });
+        
+        async function loadUserTickets() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            let userTickets = [];
+
+            if (currentUser && currentUser.email) {
+                try {
+                    const baseURL = typeof API_CONFIG !== 'undefined' ? API_CONFIG.baseURL : 'http://localhost:5000';
+                    const response = await fetch(`${baseURL}/api/tickets/user`, { headers: API_CONFIG.authHeaders() });
+                    if (response.status === 401) return API_CONFIG.forceLogin();
+                    const data = await response.json();
+                    if (data.success && Array.isArray(data.tickets)) {
+                        userTickets = data.tickets;
+                    }
+                } catch (err) {
+                    console.error('Could not load tickets:', err);
+                }
+            }
+            window.__tickets = userTickets;
+
+            renderTickets(userTickets);
+        }
+
+        function renderTickets(userTickets) {
+            const esc = API_CONFIG.esc;
+            const ticketsList = document.getElementById('ticketsList');
+            const noTickets = document.getElementById('noTickets');
+
+            if (userTickets.length === 0) {
+                ticketsList.style.display = 'none';
+                noTickets.style.display = 'block';
+                return;
+            }
+
+            ticketsList.style.display = 'grid';
+            noTickets.style.display = 'none';
+
+            // Sort by purchase date (newest first)
+            userTickets.sort((a, b) => new Date(b.purchasedAt) - new Date(a.purchasedAt));
+            
+            ticketsList.innerHTML = userTickets.map((ticket, index) => {
+                const ticketId = ticket.ticketId || ticket.id;
+                const title = ticket.event?.title || ticket.title || 'Event';
+                const date = ticket.event?.date || ticket.date || '';
+                const time = ticket.event?.time || ticket.time || '';
+                const location = ticket.event?.location || ticket.location || '';
+                const type = ticket.ticketDetails?.type || ticket.ticketType || '';
+                const price = ticket.ticketDetails?.price || ticket.price || 0;
+                const attendeeName = ticket.attendee?.fullName || ticket.attendeeName || '';
+                const purchasedAt = ticket.purchasedAt || ticket.generatedAt || '';
+                const qrData = ticket.qrCodeData || ticketId;
+
+                return `
+                <div class="ticket-card">
+                    <h3>${esc(title)}
+                        <span class="ticket-status status-active">ACTIVE</span>
+                    </h3>
+                    
+                    <div class="ticket-info">
+                        <p><strong>Ticket ID:</strong> <span class="ticket-id">${esc(ticketId)}</span></p>
+                        <p><strong>Attendee:</strong> ${esc(attendeeName)}</p>
+                        <p><strong>Date:</strong> ${esc(date)}</p>
+                        <p><strong>Time:</strong> ${esc(time)}</p>
+                        <p><strong>Location:</strong> ${esc(location)}</p>
+                        <p><strong>Type:</strong> ${esc(String(type).toUpperCase())}</p>
+                        <p><strong>Price:</strong> ₦${Number(price).toLocaleString()}</p>
+                        <p><strong>Purchased:</strong> ${purchasedAt ? new Date(purchasedAt).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                    
+                    <div class="ticket-qr">
+                        <img class="qr-img" data-ticket="${esc(ticketId)}" width="150" height="150" alt="QR Code">
+                        <p style="margin-top: 10px; font-size: 14px; color: #6b7280;">Scan at event entrance</p>
+                    </div>
+                    
+                    <div class="ticket-actions">
+                        <button class="btn btn-download" data-act="download" data-id="${esc(ticketId)}">
+                            Download Ticket
+                        </button>
+                        <button class="btn btn-view" data-act="view" data-id="${esc(ticketId)}">
+                            View Details
+                        </button>
+                        <button class="btn btn-whatsapp" data-act="share" data-id="${esc(ticketId)}">
+                            Share Ticket
+                        </button>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+            ticketsList.querySelectorAll('.qr-img').forEach(img =>
+                API_CONFIG.loadAuthedImage(img, `/api/tickets/${encodeURIComponent(img.dataset.ticket)}/qr`));
+            ticketsList.querySelectorAll('button[data-act]').forEach(btn =>
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.id;
+                    if (btn.dataset.act === 'download') downloadTicket(id);
+                    else if (btn.dataset.act === 'view') viewTicketDetails(id);
+                    else shareTicket(id);
+                }));
+        }
+        
+        function downloadTicket(ticketId) {
+            API_CONFIG.downloadTicket(ticketId);
+        }
+        
+        function viewTicketDetails(ticketId) {
+            window.location.href = `ticket-view.html?id=${encodeURIComponent(ticketId)}`;
+        }
+
+        function shareTicket(ticketId) {
+            const ticket = (window.__tickets || []).find(t => (t.ticketId || t.id) === ticketId);
+            if (!ticket) {
+                return alert('Ticket not found.');
+            }
+
+            const title = ticket.event?.title || ticket.title || 'your event';
+            // Ticket downloads are private, so only share the event, not a download link
+            const message = `Hi! I'm going to ${title} on Kyomatos. Get your ticket at ${window.location.origin}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        }
+        
+        function updateNavigation() {
+    if (window.KyoNav) KyoNav.refresh();
+}
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('jwt_token');
+                localStorage.removeItem('userTickets');
+                window.location.href = 'index.html';
+            }
+        }
+        
+        // Make functions available globally
+        window.downloadTicket = downloadTicket;
+        window.viewTicketDetails = viewTicketDetails;
+        window.logout = logout;
+    </script>
+</body>
+</html>

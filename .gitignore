@@ -1,0 +1,8 @@
+﻿node_modules/
+backend/node_modules/
+backend/pdfs/
+.env
+backend/.env
+*.env
+!.env.example
+!backend/.env.example
