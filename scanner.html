@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Kyomatos Gate Scanner</title>
+    <link rel="stylesheet" href="style.css?v=1" />
+    <link rel="stylesheet" href="header.css?v=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="brand.css?v=1" />
+    <style>
+        .scan-wrap { max-width: 520px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+        .scan-wrap h1 { font-size: 1.6rem; text-align: center; margin: 1rem 0 .25rem; }
+        .scan-sub { text-align: center; color: var(--kyo-muted); margin-bottom: 1.25rem; font-size: .9rem; }
+        .panel { background: var(--kyo-card); border: 1px solid var(--kyo-line); padding: 1rem; margin-bottom: 1rem; }
+        .panel label { display: block; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--kyo-muted); margin-bottom: .4rem; }
+        .panel input { width: 100%; padding: .8rem; font-size: 1rem; }
+        .row { display: flex; gap: .5rem; }
+        .row .btn { white-space: nowrap; }
+        #viewport { position: relative; background: #000; border: 1px solid var(--kyo-line); aspect-ratio: 1 / 1; overflow: hidden; }
+        #video { width: 100%; height: 100%; object-fit: cover; }
+        #frame { position: absolute; inset: 18%; border: 2px solid var(--kyo-red-bright); pointer-events: none; }
+        #camMsg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 1.5rem; color: var(--kyo-muted); }
+        #result { display: none; padding: 1.25rem; text-align: center; border: 2px solid; margin-bottom: 1rem; }
+        #result.ok { background: #0b3d1a; border-color: #2ecc71; color: #eafff1; }
+        #result.used { background: #4a3500; border-color: #f1c40f; color: #fff8dc; }
+        #result.bad { background: #4a0d08; border-color: var(--kyo-red-bright); color: #ffe9e6; }
+        #result .big { font-family: 'Oswald', sans-serif; font-size: 2rem; letter-spacing: .06em; text-transform: uppercase; }
+        #result .detail { margin-top: .35rem; font-size: 1rem; }
+        .count { text-align: center; color: var(--kyo-muted); font-size: .85rem; }
+        .count b { color: var(--kyo-white); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="scanner.html" class="nav-brand">
+                <div class="brand-logo">K</div>
+                <span class="brand-text">Gate</span>
+            </a>
+        </div>
+    </nav>
+
+    <main class="scan-wrap">
+        <h1>Ticket Scanner</h1>
+        <p class="scan-sub">Staff only. Point the camera at a guest's ticket QR code.</p>
+
+        <div class="panel" id="keyPanel">
+            <label for="adminKey">Staff key</label>
+            <div class="row">
+                <input type="password" id="adminKey" placeholder="Enter the staff key" autocomplete="off" />
+                <button class="btn btn-primary" id="saveKey">Unlock</button>
+            </div>
+        </div>
+
+        <div id="result" role="status" aria-live="polite"><div class="big"></div><div class="detail"></div></div>
+
+        <div id="viewport">
+            <video id="video" playsinline muted></video>
+            <div id="frame"></div>
+            <div id="camMsg">Unlock with the staff key to start the camera.</div>
+        </div>
+        <canvas id="canvas" style="display:none"></canvas>
+
+        <p class="count" style="margin:.8rem 0 1.2rem">Admitted this session: <b id="admitted">0</b></p>
+
+        <div class="panel">
+            <label for="manual">Camera not working? Paste the code</label>
+            <div class="row">
+                <input type="text" id="manual" placeholder="KYO1.TKT-..." autocomplete="off" />
+                <button class="btn btn-outline" id="checkManual">Check</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <script>
+        const $ = id => document.getElementById(id);
+        const store = {
+            get() { try { return sessionStorage.getItem('kyoStaffKey') || ''; } catch (e) { return ''; } },
+            set(v) { try { sessionStorage.setItem('kyoStaffKey', v); } catch (e) {} },
+            clear() { try { sessionStorage.removeItem('kyoStaffKey'); } catch (e) {} }
+        };
+        let adminKey = store.get();
+        let admitted = 0, busy = false, lastCode = '', lastAt = 0, stream = null, hideTimer = null;
+
+        function beep(ok) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.frequency.value = ok ? 880 : 220; o.connect(g); g.connect(ctx.destination);
+                g.gain.value = .08; o.start(); o.stop(ctx.currentTime + (ok ? .12 : .35));
+            } catch (e) {}
+            if (navigator.vibrate) navigator.vibrate(ok ? 80 : [120, 60, 120]);
+        }
+
+        function show(kind, big, detail) {
+            const r = $('result');
+            r.className = kind; r.style.display = 'block';
+            r.querySelector('.big').textContent = big;
+            r.querySelector('.detail').textContent = detail || '';
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(() => { r.style.display = 'none'; }, 6000);
+        }
+
+        async function checkCode(code) {
+            if (busy || !code) return;
+            busy = true;
+            try {
+                const res = await fetch(`${API_CONFIG.baseURL}/api/checkin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 401) {
+                    store.clear(); adminKey = ''; stopCamera();
+                    $('keyPanel').style.display = 'block';
+                    $('camMsg').style.display = 'flex'; $('camMsg').textContent = 'Wrong staff key. Enter it again.';
+                    show('bad', 'Wrong staff key', 'Please enter the key again.'); beep(false);
+                } else if (res.ok && data.success) {
+                    admitted++; $('admitted').textContent = admitted;
+                    const t = data.ticket || {};
+                    show('ok', 'Welcome in', [t.attendee, t.event, (t.type || '').toUpperCase()].filter(Boolean).join(' · ')); beep(true);
+                } else if (res.status === 409) {
+                    const when = data.checkedInAt ? new Date(data.checkedInAt).toLocaleString() : '';
+                    show('used', 'Already used', when ? 'Checked in at ' + when : 'This ticket was already scanned.'); beep(false);
+                } else if (res.status === 404) {
+                    show('bad', 'Not found', 'No ticket matches this code.'); beep(false);
+                } else if (res.status === 429) {
+                    show('bad', 'Slow down', 'Too many scans. Wait a moment.'); beep(false);
+                } else {
+                    show('bad', 'Fake ticket', data.message || 'This is not a valid Kyomatos ticket.'); beep(false);
+                }
+            } catch (e) {
+                show('bad', 'No connection', 'Could not reach the server. Check your internet.'); beep(false);
+            } finally {
+                setTimeout(() => { busy = false; }, 600);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        }
+
+        async function startCamera() {
+            if (stream) return;
+            const msg = $('camMsg');
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                const v = $('video'); v.srcObject = stream; await v.play();
+                msg.style.display = 'none';
+                requestAnimationFrame(tick);
+            } catch (e) {
+                msg.style.display = 'flex';
+                msg.textContent = 'Camera not available. Allow camera access, or paste the code below.';
+            }
+        }
+
+        function tick() {
+            if (!stream) return;
+            const v = $('video'), c = $('canvas');
+            if (v.readyState === v.HAVE_ENOUGH_DATA && !busy) {
+                const w = v.videoWidth, h = v.videoHeight, s = Math.min(1, 640 / Math.max(w, h));
+                c.width = Math.round(w * s); c.height = Math.round(h * s);
+                const ctx = c.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(v, 0, 0, c.width, c.height);
+                const img = ctx.getImageData(0, 0, c.width, c.height);
+                const hit = window.jsQR && jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+                if (hit && hit.data) {
+                    const now = Date.now();
+                    if (hit.data !== lastCode || now - lastAt > 4000) { lastCode = hit.data; lastAt = now; checkCode(hit.data); }
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function unlocked() {
+            $('keyPanel').style.display = 'none';
+            startCamera();
+        }
+
+        $('saveKey').addEventListener('click', () => {
+            const k = $('adminKey').value.trim();
+            if (!k) return;
+            adminKey = k; store.set(k); $('adminKey').value = ''; unlocked();
+        });
+        $('adminKey').addEventListener('keydown', e => { if (e.key === 'Enter') $('saveKey').click(); });
+        $('checkManual').addEventListener('click', () => {
+            if (!adminKey) return show('bad', 'Enter the staff key first', '');
+            const v = $('manual').value.trim(); if (v) { checkCode(v); $('manual').value = ''; }
+        });
+        $('manual').addEventListener('keydown', e => { if (e.key === 'Enter') $('checkManual').click(); });
+
+        if (adminKey) unlocked();
+    </script>
+</body>
+</html>
