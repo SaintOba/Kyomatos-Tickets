@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Kyomatos Admin</title>
+    <link rel="stylesheet" href="style.css?v=1" />
+    <link rel="stylesheet" href="header.css?v=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="brand.css?v=1" />
+    <style>
+        .adm { max-width: 1150px; margin: 0 auto; padding: 1.25rem 1rem 4rem; }
+        .adm h1 { font-size: 1.6rem; margin: 1rem 0 .25rem; }
+        .adm h2 { font-size: 1.15rem; margin: 0 0 .8rem; color: var(--kyo-white); }
+        .sub { color: var(--kyo-muted); font-size: .9rem; margin-bottom: 1.2rem; }
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--kyo-line); margin-bottom: 1.2rem; overflow-x: auto; }
+        .tab { background: transparent; border: 0; border-bottom: 3px solid transparent; color: var(--kyo-muted); padding: .8rem 1.1rem; font: 600 .8rem 'Inter', sans-serif; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+        .tab.on { color: var(--kyo-white); border-bottom-color: var(--kyo-red); }
+        .view { display: none; } .view.on { display: block; }
+        .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-bottom: 1.4rem; }
+        .tile { background: var(--kyo-card); border: 1px solid var(--kyo-line); padding: 1rem; }
+        .tile .n { font: 600 1.9rem 'Oswald', sans-serif; color: var(--kyo-white); }
+        .tile .l { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--kyo-muted); margin-top: .15rem; }
+        .tile.red .n { color: var(--kyo-red-bright); }
+        .box { background: var(--kyo-card); border: 1px solid var(--kyo-line); padding: 1rem; margin-bottom: 1.2rem; }
+        .tbl-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        th { text-align: left; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--kyo-muted); font-weight: 600; padding: .55rem .6rem; border-bottom: 1px solid var(--kyo-line); white-space: nowrap; }
+        td { padding: .65rem .6rem; border-bottom: 1px solid #1d1d1d; vertical-align: middle; }
+        td.num, th.num { text-align: right; white-space: nowrap; }
+        .muted { color: var(--kyo-muted); }
+        .pill { display: inline-block; padding: .15rem .55rem; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; border: 1px solid var(--kyo-line); font-weight: 700; white-space: nowrap; }
+        .pill.ok { color: #2ecc71; border-color: #2ecc71; } .pill.warn { color: #f1c40f; border-color: #f1c40f; } .pill.bad { color: var(--kyo-red-bright); border-color: var(--kyo-red); }
+        .bar { height: 6px; background: #222; min-width: 90px; } .bar > i { display: block; height: 100%; background: var(--kyo-red); }
+        .btn.sm { padding: .4rem .7rem; font-size: .68rem; margin: 0 .2rem .2rem 0; cursor: pointer; }
+        .btn.ghost { background: transparent; color: var(--kyo-white); border-color: var(--kyo-line); }
+        .btn.ghost:hover { border-color: var(--kyo-white); background: transparent; color: var(--kyo-white); }
+        .btn.danger { background: transparent; color: var(--kyo-red-bright); border-color: var(--kyo-red); }
+        .btn.danger:hover { background: var(--kyo-red); color: #fff; border-color: var(--kyo-red); }
+        .toolbar { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1rem; align-items: center; }
+        .toolbar select, .toolbar input { width: auto; min-width: 150px; padding: .6rem .7rem; font-size: .9rem; }
+        .toolbar .grow { flex: 1; min-width: 180px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: .9rem; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .field label { display: block; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--kyo-muted); margin-bottom: .3rem; }
+        .field input, .field select, .field textarea { width: 100%; padding: .65rem; font-size: .95rem; }
+        .field small { color: var(--kyo-muted); font-size: .75rem; }
+        .check { display: flex; align-items: center; gap: .5rem; } .check input { width: auto; }
+        .hidden { display: none !important; }
+        #toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); z-index: 10000; padding: .8rem 1.2rem; max-width: 92vw; font-weight: 600; display: none; border: 1px solid; }
+        #toast.ok { background: #0b3d1a; border-color: #2ecc71; color: #eafff1; } #toast.err { background: #4a0d08; border-color: var(--kyo-red-bright); color: #ffe9e6; }
+        #login { max-width: 420px; margin: 3rem auto; }
+        .pager { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; margin-top: .8rem; color: var(--kyo-muted); font-size: .85rem; }
+        .big-count { font: 600 1.6rem 'Oswald', sans-serif; }
+        @media (max-width: 640px) { td, th { padding: .5rem .4rem; } .tab { padding: .7rem .8rem; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin.html" class="nav-brand">
+                <div class="brand-logo">K</div>
+                <span class="brand-text">Admin</span>
+            </a>
+            <div style="display:flex;gap:.6rem;align-items:center">
+                <a href="scanner.html" class="btn btn-outline sm" style="text-decoration:none;padding:.5rem .8rem">Scanner</a>
+                <button class="btn btn-outline sm hidden" id="logout" style="padding:.5rem .8rem">Log out</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="adm">
+        <!-- login -->
+        <section id="login" class="box">
+            <h2>Admin login</h2>
+            <p class="sub">Enter the admin key.</p>
+            <div class="field"><label for="key">Admin key</label><input type="password" id="key" autocomplete="off" /></div>
+            <button class="btn btn-primary" id="loginBtn" style="margin-top:.9rem;width:100%;padding:.8rem;cursor:pointer">Log in</button>
+        </section>
+
+        <!-- app -->
+        <section id="app" class="hidden">
+            <h1>Control Room</h1>
+            <p class="sub">Manage events, tickets and entry.</p>
+            <div class="tabs" role="tablist">
+                <button class="tab on" data-tab="dash">Dashboard</button>
+                <button class="tab" data-tab="events">Events</button>
+                <button class="tab" data-tab="tickets">Tickets</button>
+                <button class="tab" data-tab="checkin">Check-in</button>
+            </div>
+
+            <!-- dashboard -->
+            <div class="view on" id="v-dash">
+                <div class="tiles" id="tiles"></div>
+                <div class="box"><h2>Sales by event</h2><div class="tbl-wrap"><table id="salesTbl"></table></div></div>
+            </div>
+
+            <!-- events -->
+            <div class="view" id="v-events">
+                <div class="toolbar"><button class="btn btn-primary" id="addEventBtn" style="cursor:pointer">+ Add event</button></div>
+                <div class="box hidden" id="eventForm">
+                    <h2 id="eventFormTitle">Add event</h2>
+                    <form id="evForm" autocomplete="off">
+                        <div class="form-grid">
+                            <div class="field full"><label for="f_title">Event name *</label><input id="f_title" maxlength="120" required></div>
+                            <div class="field"><label for="f_dateISO">Date</label><input id="f_dateISO" type="date"><small id="f_dateNote"></small></div>
+                            <div class="field"><label for="f_time">Time</label><input id="f_time" maxlength="80" placeholder="09:00 PM - Till Dawn WAT"></div>
+                            <div class="field"><label for="f_location">Venue</label><input id="f_location" maxlength="120"></div>
+                            <div class="field"><label for="f_venueAddress">Address (optional)</label><input id="f_venueAddress" maxlength="200"></div>
+                            <div class="field"><label for="f_price">Ticket price (₦) *</label><input id="f_price" type="number" min="0" step="1" required></div>
+                            <div class="field"><label for="f_ticketType">Ticket type</label><input id="f_ticketType" list="types" maxlength="30" placeholder="standard"><datalist id="types"><option value="standard"><option value="vip"><option value="premium"><option value="early bird"></datalist></div>
+                            <div class="field"><label for="f_capacity">Capacity</label><input id="f_capacity" type="number" min="1" step="1" placeholder="Empty = unlimited"><small>Sales stop when this many tickets are sold.</small></div>
+                            <div class="field"><label for="f_image">Image link</label><input id="f_image" maxlength="300" placeholder="https://..."><small>Use an https:// image link (e.g. from Imgur or Cloudinary).</small></div>
+                            <div class="field full"><label for="f_description">Description</label><textarea id="f_description" rows="3" maxlength="1000"></textarea></div>
+                            <div class="field full check"><input id="f_active" type="checkbox" checked><label for="f_active" style="margin:0">On sale (visible on the website)</label></div>
+                        </div>
+                        <div style="margin-top:1rem">
+                            <button class="btn btn-primary" type="submit" style="cursor:pointer">Save event</button>
+                            <button class="btn ghost" type="button" id="cancelEvent" style="cursor:pointer">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="box"><div class="tbl-wrap"><table id="eventsTbl"></table></div></div>
+            </div>
+
+            <!-- tickets -->
+            <div class="view" id="v-tickets">
+                <div class="toolbar">
+                    <select id="tEvent"></select>
+                    <select id="tStatus"><option value="">All statuses</option><option value="valid">Valid</option><option value="checked-in">Checked in</option><option value="cancelled">Cancelled</option></select>
+                    <input id="tSearch" class="grow" placeholder="Search name, email, phone or ticket ID">
+                    <button class="btn btn-outline sm" id="exportBtn" style="cursor:pointer">Export CSV</button>
+                    <button class="btn btn-primary sm" id="issueToggle" style="cursor:pointer">+ Issue tickets</button>
+                </div>
+                <div class="box hidden" id="issueBox">
+                    <h2>Issue free (complimentary) tickets</h2>
+                    <form id="issueForm" autocomplete="off">
+                        <div class="form-grid">
+                            <div class="field"><label for="i_event">Event *</label><select id="i_event"></select></div>
+                            <div class="field"><label for="i_name">Guest name *</label><input id="i_name" maxlength="100" required></div>
+                            <div class="field"><label for="i_email">Guest email *</label><input id="i_email" type="email" required></div>
+                            <div class="field"><label for="i_phone">Phone</label><input id="i_phone" maxlength="30"></div>
+                            <div class="field"><label for="i_qty">How many *</label><input id="i_qty" type="number" min="1" max="50" value="1" required></div>
+                            <div class="field check" style="align-self:end"><input id="i_send" type="checkbox" checked><label for="i_send" style="margin:0">Email the ticket(s) to the guest</label></div>
+                        </div>
+                        <button class="btn btn-primary" type="submit" style="margin-top:1rem;cursor:pointer">Issue tickets</button>
+                    </form>
+                </div>
+                <div class="box"><div class="tbl-wrap"><table id="ticketsTbl"></table></div>
+                    <div class="pager"><span id="pageInfo"></span><button class="btn ghost sm" id="prevPg">Prev</button><button class="btn ghost sm" id="nextPg">Next</button></div>
+                </div>
+            </div>
+
+            <!-- check-in -->
+            <div class="view" id="v-checkin">
+                <div class="toolbar">
+                    <select id="cEvent"></select>
+                    <input id="cSearch" class="grow" placeholder="Search guest name, email or ticket ID">
+                    <select id="cShow"><option value="">Everyone</option><option value="waiting">Not arrived yet</option><option value="in">Admitted</option></select>
+                </div>
+                <div class="box">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:.5rem"><span class="big-count" id="cCount">-</span><span class="muted" id="cNote"></span></div>
+                    <div class="bar" style="margin:.6rem 0 0"><i id="cBar" style="width:0"></i></div>
+                </div>
+                <div class="box"><div class="tbl-wrap"><table id="checkTbl"></table></div></div>
+            </div>
+        </section>
+    </main>
+    <div id="toast" role="status"></div>
+
+    <script src="config.js"></script>
+    <script>
+    (function () {
+        const $ = (id) => document.getElementById(id);
+        const esc = API_CONFIG.esc;
+        const naira = (n) => '₦' + Number(n || 0).toLocaleString();
+        const store = {
+            get() { try { return sessionStorage.getItem('kyoAdminKey') || ''; } catch (e) { return ''; } },
+            set(v) { try { sessionStorage.setItem('kyoAdminKey', v); } catch (e) {} },
+            clear() { try { sessionStorage.removeItem('kyoAdminKey'); } catch (e) {} }
+        };
+        let key = store.get(), events = [], editingId = null, page = 1, limit = 50, total = 0, toastTimer, checkTimer;
+
+        function toast(msg, ok) {
+            const t = $('toast'); t.textContent = msg; t.className = ok === false ? 'err' : 'ok'; t.style.display = 'block';
+            clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.display = 'none'; }, 4500);
+        }
+
+        async function api(path, opts = {}) {
+            const res = await fetch(API_CONFIG.baseURL + '/api/admin' + path, {
+                ...opts,
+                headers: { 'x-admin-key': key, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) }
+            });
+            if (res.status === 401) { logout(true); throw new Error('Wrong or missing admin key'); }
+            if (path.indexOf('export.csv') > -1 && res.ok) return res;
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.success === false) throw new Error(data.message || 'Something went wrong');
+            return data;
+        }
+        const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body || {}) });
+        const fail = (e) => toast(e.message || 'Something went wrong', false);
+
+        // ---------- login ----------
+        function showApp() { $('login').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden'); loadAll(); }
+        function logout(silent) {
+            store.clear(); key = ''; clearInterval(checkTimer);
+            $('app').classList.add('hidden'); $('logout').classList.add('hidden'); $('login').classList.remove('hidden');
+            if (silent) toast('Please log in with the admin key', false);
+        }
+        async function tryLogin() {
+            const k = $('key').value.trim(); if (!k) return;
+            key = k;
+            try { await api('/ping'); store.set(k); $('key').value = ''; showApp(); }
+            catch (e) { if (e.message !== 'Wrong or missing admin key') toast('Cannot reach the server. Try again.', false); }
+        }
+        $('loginBtn').addEventListener('click', tryLogin);
+        $('key').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
+        $('logout').addEventListener('click', () => logout(false));
+
+        // ---------- tabs ----------
+        document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === b));
+            document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === 'v-' + b.dataset.tab));
+            clearInterval(checkTimer);
+            if (b.dataset.tab === 'dash') loadStats();
+            if (b.dataset.tab === 'events') loadEvents();
+            if (b.dataset.tab === 'tickets') loadTickets();
+            if (b.dataset.tab === 'checkin') { loadCheckin(); checkTimer = setInterval(loadCheckin, 15000); }
+        }));
+
+        async function loadAll() { await loadEvents(); loadStats(); }
+
+        // ---------- dashboard ----------
+        async function loadStats() {
+            try {
+                const d = await api('/stats'); const t = d.totals;
+                $('tiles').innerHTML = [
+                    ['red', naira(t.revenue), 'Revenue'], ['', t.sold, 'Tickets sold'], ['', t.checkedIn, 'Checked in'],
+                    ['', t.complimentary, 'Free tickets issued'], ['', t.cancelled, 'Cancelled'], ['', t.eventsLive, 'Events on sale']
+                ].map((x) => `<div class="tile ${x[0]}"><div class="n">${esc(x[1])}</div><div class="l">${esc(x[2])}</div></div>`).join('');
+                $('salesTbl').innerHTML = '<tr><th>Event</th><th class="num">Price</th><th>Sold</th><th class="num">Revenue</th><th class="num">Checked in</th><th>Status</th></tr>' +
+                    (d.events.map((e) => {
+                        const pct = e.capacity ? Math.min(100, Math.round((e.sold / e.capacity) * 100)) : null;
+                        return `<tr><td>${esc(e.title)}</td><td class="num">${naira(e.price)}</td>
+                            <td>${e.sold}${e.capacity ? ' / ' + e.capacity : ''}${pct !== null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</td>
+                            <td class="num">${naira(e.revenue)}</td><td class="num">${e.checkedIn}</td>
+                            <td><span class="pill ${e.active ? 'ok' : 'warn'}">${e.active ? 'On sale' : 'Closed'}</span></td></tr>`;
+                    }).join('') || '<tr><td class="muted">No events yet.</td></tr>');
+            } catch (e) { fail(e); }
+        }
+
+        // ---------- events ----------
+        function fillEventSelects() {
+            const opts = events.map((e) => `<option value="${e.id}">${esc(e.title)}</option>`).join('');
+            const cur = { t: $('tEvent').value, c: $('cEvent').value, i: $('i_event').value };
+            $('tEvent').innerHTML = '<option value="">All events</option>' + opts;
+            $('cEvent').innerHTML = opts; $('i_event').innerHTML = opts;
+            if (cur.t) $('tEvent').value = cur.t; if (cur.c) $('cEvent').value = cur.c; if (cur.i) $('i_event').value = cur.i;
+        }
+        async function loadEvents() {
+            try {
+                const [ev, st] = await Promise.all([api('/events'), api('/stats')]);
+                events = ev.events; fillEventSelects();
+                const sold = Object.fromEntries(st.events.map((e) => [e.id, e.sold]));
+                $('eventsTbl').innerHTML = '<tr><th>Event</th><th>Date</th><th class="num">Price</th><th>Sold</th><th>Status</th><th></th></tr>' +
+                    (events.map((e) => `<tr>
+                        <td><strong>${esc(e.title)}</strong><div class="muted">${esc(e.location)}</div></td>
+                        <td>${esc(e.date)}</td><td class="num">${naira(e.price)}</td>
+                        <td>${sold[e.id] || 0}${e.capacity ? ' / ' + e.capacity : ''}</td>
+                        <td><span class="pill ${e.active ? 'ok' : 'warn'}">${e.active ? 'On sale' : 'Closed'}</span></td>
+                        <td class="num">
+                            <button class="btn sm ghost" data-act="edit" data-id="${e.id}">Edit</button>
+                            <button class="btn sm ghost" data-act="toggle" data-id="${e.id}">${e.active ? 'Close sales' : 'Open sales'}</button>
+                            <button class="btn sm danger" data-act="remove" data-id="${e.id}">Remove</button>
+                        </td></tr>`).join('') || '<tr><td class="muted">No events yet. Click "Add event".</td></tr>');
+            } catch (e) { fail(e); }
+        }
+        $('eventsTbl').addEventListener('click', async (e) => {
+            const b = e.target.closest('button[data-act]'); if (!b) return;
+            const ev = events.find((x) => x.id === Number(b.dataset.id)); if (!ev) return;
+            try {
+                if (b.dataset.act === 'edit') openForm(ev);
+                if (b.dataset.act === 'toggle') { await api('/events/' + ev.id, { method: 'PUT', body: JSON.stringify({ active: !ev.active }) }); toast(ev.active ? 'Sales closed' : 'Event is on sale'); loadEvents(); }
+                if (b.dataset.act === 'remove') {
+                    if (!confirm(`Remove "${ev.title}" from the website?\n\nTickets already sold will still work.`)) return;
+                    await api('/events/' + ev.id, { method: 'DELETE' }); toast('Event removed'); loadEvents();
+                }
+            } catch (err) { fail(err); }
+        });
+        const F = ['title', 'dateISO', 'time', 'location', 'venueAddress', 'price', 'ticketType', 'capacity', 'image', 'description'];
+        function openForm(ev) {
+            editingId = ev ? ev.id : null;
+            $('eventFormTitle').textContent = ev ? 'Edit event' : 'Add event';
+            F.forEach((f) => { $('f_' + f).value = ev && ev[f] != null ? ev[f] : ''; });
+            $('f_active').checked = ev ? !!ev.active : true;
+            $('f_dateNote').textContent = ev && ev.date && !ev.dateISO ? 'Currently shown as: ' + ev.date + '. Pick a date to replace it.' : '';
+            $('eventForm').classList.remove('hidden'); $('eventForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        $('addEventBtn').addEventListener('click', () => openForm(null));
+        $('cancelEvent').addEventListener('click', () => $('eventForm').classList.add('hidden'));
+        $('evForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {}; F.forEach((f) => { body[f] = $('f_' + f).value.trim(); });
+            body.capacity = body.capacity === '' ? null : Number(body.capacity);
+            body.active = $('f_active').checked;
+            if (editingId && !body.dateISO) delete body.dateISO; // keep the old date text if no new date picked
+            try {
+                await api(editingId ? '/events/' + editingId : '/events', { method: editingId ? 'PUT' : 'POST', body: JSON.stringify(body) });
+                toast('Event saved'); $('eventForm').classList.add('hidden'); loadEvents();
+            } catch (err) { fail(err); }
+        });
+
+        // ---------- tickets ----------
+        const pill = (s) => `<span class="pill ${s === 'valid' ? 'ok' : s === 'checked-in' ? 'warn' : 'bad'}">${esc(s)}</span>`;
+        function q() {
+            const p = new URLSearchParams();
+            if ($('tEvent').value) p.set('event', $('tEvent').value);
+            if ($('tStatus').value) p.set('status', $('tStatus').value);
+            if ($('tSearch').value.trim()) p.set('q', $('tSearch').value.trim());
+            return p;
+        }
+        async function loadTickets() {
+            try {
+                const p = q(); p.set('page', page); p.set('limit', limit);
+                const d = await api('/tickets?' + p.toString()); total = d.total;
+                $('ticketsTbl').innerHTML = '<tr><th>Guest</th><th>Event</th><th>Type</th><th class="num">Paid</th><th>Status</th><th></th></tr>' +
+                    (d.tickets.map((t) => `<tr>
+                        <td><strong>${esc(t.name)}</strong><div class="muted">${esc(t.email)}</div><div class="muted" style="font-size:.72rem">${esc(t.ticketId)}</div></td>
+                        <td>${esc(t.eventTitle)}</td><td>${esc(t.type)}</td>
+                        <td class="num">${t.complimentary ? '<span class="muted">Free</span>' : naira(t.price)}</td>
+                        <td>${pill(t.status)}</td>
+                        <td class="num">
+                            ${t.status !== 'cancelled' ? `<button class="btn sm ghost" data-act="resend" data-id="${esc(t.ticketId)}">Resend</button>` : ''}
+                            ${t.status === 'cancelled'
+                                ? `<button class="btn sm ghost" data-act="restore" data-id="${esc(t.ticketId)}">Restore</button>`
+                                : `<button class="btn sm danger" data-act="cancel" data-id="${esc(t.ticketId)}">Cancel</button>`}
+                        </td></tr>`).join('') || '<tr><td class="muted">No tickets found.</td></tr>');
+                const pages = Math.max(1, Math.ceil(total / limit));
+                $('pageInfo').textContent = `${total} ticket${total === 1 ? '' : 's'} · page ${page} of ${pages}`;
+                $('prevPg').disabled = page <= 1; $('nextPg').disabled = page >= pages;
+            } catch (e) { fail(e); }
+        }
+        let searchTimer;
+        ['tEvent', 'tStatus'].forEach((id) => $(id).addEventListener('change', () => { page = 1; loadTickets(); }));
+        $('tSearch').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page = 1; loadTickets(); }, 350); });
+        $('prevPg').addEventListener('click', () => { page--; loadTickets(); });
+        $('nextPg').addEventListener('click', () => { page++; loadTickets(); });
+        $('ticketsTbl').addEventListener('click', async (e) => {
+            const b = e.target.closest('button[data-act]'); if (!b) return; const id = b.dataset.id;
+            try {
+                if (b.dataset.act === 'cancel') {
+                    if (!confirm('Cancel this ticket? It will stop working at the gate. (Refunds are done in Paystack.)')) return;
+                    await post('/tickets/' + encodeURIComponent(id) + '/cancel'); toast('Ticket cancelled');
+                } else if (b.dataset.act === 'restore') { await post('/tickets/' + encodeURIComponent(id) + '/restore'); toast('Ticket restored'); }
+                else if (b.dataset.act === 'resend') { b.disabled = true; const r = await post('/tickets/' + encodeURIComponent(id) + '/resend'); toast(r.message); b.disabled = false; return; }
+                loadTickets();
+            } catch (err) { b.disabled = false; fail(err); }
+        });
+        $('exportBtn').addEventListener('click', async () => {
+            try {
+                const res = await api('/export.csv?' + q().toString());
+                const blob = await res.blob(), a = document.createElement('a');
+                a.href = URL.createObjectURL(blob); a.download = 'kyomatos-tickets.csv'; document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+            } catch (e) { fail(e); }
+        });
+        $('issueToggle').addEventListener('click', () => $('issueBox').classList.toggle('hidden'));
+        $('issueForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
+            try {
+                const r = await post('/tickets/issue', {
+                    eventId: $('i_event').value, name: $('i_name').value, email: $('i_email').value, phone: $('i_phone').value,
+                    quantity: $('i_qty').value, sendEmail: $('i_send').checked
+                });
+                toast(`${r.tickets.length} ticket(s) issued` + ($('i_send').checked ? (r.emailed ? ' and emailed' : ' (email could not be sent, use Resend)') : ''), r.emailed || !$('i_send').checked);
+                ['i_name', 'i_email', 'i_phone'].forEach((id) => { $(id).value = ''; }); $('i_qty').value = 1;
+                $('issueBox').classList.add('hidden'); loadTickets();
+            } catch (err) { fail(err); }
+            btn.disabled = false;
+        });
+
+        // ---------- check-in ----------
+        async function loadCheckin() {
+            if (!$('cEvent').value) { $('checkTbl').innerHTML = '<tr><td class="muted">Add an event first.</td></tr>'; return; }
+            try {
+                const p = new URLSearchParams({ event: $('cEvent').value }); if ($('cSearch').value.trim()) p.set('q', $('cSearch').value.trim());
+                const d = await api('/checkins?' + p.toString());
+                const show = $('cShow').value;
+                const rows = d.tickets.filter((t) => show === 'in' ? t.checkedInAt : show === 'waiting' ? !t.checkedInAt : true);
+                $('cCount').textContent = `${d.admitted} / ${d.total} admitted`;
+                $('cNote').textContent = `${d.total - d.admitted} still to arrive`;
+                $('cBar').style.width = (d.total ? Math.round((d.admitted / d.total) * 100) : 0) + '%';
+                $('checkTbl').innerHTML = '<tr><th>Guest</th><th>Type</th><th>Status</th><th></th></tr>' +
+                    (rows.map((t) => `<tr>
+                        <td><strong>${esc(t.name)}</strong><div class="muted">${esc(t.email)}</div><div class="muted" style="font-size:.72rem">${esc(t.ticketId)}</div></td>
+                        <td>${esc(t.type)}</td>
+                        <td>${t.checkedInAt ? `<span class="pill warn">In · ${esc(new Date(t.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span>` : '<span class="pill ok">Waiting</span>'}</td>
+                        <td class="num">${t.checkedInAt
+                            ? `<button class="btn sm ghost" data-act="undo" data-id="${esc(t.ticketId)}">Undo</button>`
+                            : `<button class="btn sm" data-act="in" data-id="${esc(t.ticketId)}">Check in</button>`}</td></tr>`).join('') || '<tr><td class="muted">No guests to show.</td></tr>');
+            } catch (e) { fail(e); }
+        }
+        let cTimer; $('cSearch').addEventListener('input', () => { clearTimeout(cTimer); cTimer = setTimeout(loadCheckin, 350); });
+        $('cEvent').addEventListener('change', loadCheckin); $('cShow').addEventListener('change', loadCheckin);
+        $('checkTbl').addEventListener('click', async (e) => {
+            const b = e.target.closest('button[data-act]'); if (!b) return;
+            try { await post('/tickets/' + encodeURIComponent(b.dataset.id) + '/checkin', { undo: b.dataset.act === 'undo' }); loadCheckin(); }
+            catch (err) { fail(err); }
+        });
+
+        if (key) { api('/ping').then(showApp).catch(() => {}); }
+    })();
+    </script>
+</body>
+</html>

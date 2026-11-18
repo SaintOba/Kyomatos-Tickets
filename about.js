@@ -1,86 +1,15 @@
-const tickets = {
-    1: {
-        id: 1,
-        title: 'Tech Conference 2025',
-        date: 'July 25, 2025',
-        time: '02:00 PM - 06:00 PM WAT',
-        location: 'Lagos Convention Center',
-        price: 3000,
-        description: 'Join the biggest tech conference of 2025 with industry leaders, workshop, and networking opportunities.',
-        image: 'images/tech.jpg',
-        ticketType: 'VIP'
-    },
-            2: {
-        id: 2,
-        title: 'Music Festival',
-        date: '2025-08-10',
-        time: '09:00 PM - 04:00 AM WAT',
-        location: 'Eko Atlantic',
-        venue: 'Eko Atlantic',
-        venueAddress: 'Eko Atlantic City, Lagos',
-        price: 5000,
-        description: 'Experience live performances from top artist at the annual music festival',
-        image: 'images/festiival.jpg',
-        category: 'concert',
-        ticketType: 'premium'
-    },
-    3: {
-        id: 3,
-        title: 'Art Exhibition',
-        date: '2025-09-05',
-        time: '12:00 PM - 04:00 PM WAT',
-        location: 'Downtown Gallery',
-        venue: 'Downtown Gallery',
-        venueAddress: 'Lekki Phase 1, Lagos',
-        price: 2500,
-        description: 'Explore contemporary art from local to international artists',
-        image: 'images/art.jpg',
-        category: 'theater',
-        ticketType: 'standard'
-    },
-    4: {
-        id: 4,
-        title: 'Afro Six6 House Party',
-        date: '2025-12-05',
-        time: '09:00 PM - Till Dawn WAT',
-        location: '17 Jossy Empire',
-        venue: '17 Jossy Empire',
-        venueAddress: 'Ikeja, Lagos',
-        price: 15000,
-        description: 'Exclusive Afrobeat party with top DJs and artists',
-        image: 'images/afro6.jpg',
-        category: 'concert',
-        ticketType: 'vip'
-    },
-    5: {
-        id: 5,
-        title: 'Pool Party',
-        date: '2025-08-25',
-        time: '04:00 PM - 12:00 PM WAT',
-        location: 'Lagos Island',
-        venue: 'Lagos Island Resort',
-        venueAddress: 'Lagos Island, Lagos',
-        price: 7500,
-        description: 'Summer pool party with music, drinks, and entertainment',
-        image: 'images/poolparty.jpg',
-        category: 'other',
-        ticketType: 'standard'
-    },  
-    6: {  
-        id: 6,
-        title: 'BNB House Party',
-        date: '2025-09-05',
-        time: '09:00 PM - 04:00 AM WAT',
-        location: '123 Main Street, Victoria Island',
-        venue: 'Victoria Island Penthouse',
-        venueAddress: '123 Main Street, Victoria Island, Lagos',
-        price: 10000,
-        description: 'Exclusive house party with premium amenities',
-        image: 'images/kickback.jpg',
-        category: 'other',
-        ticketType: 'premium'
-    }
-};
+// Events come from the backend (managed in the admin page)
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function fetchEvent(id) {
+    try {
+        const r = await fetch(`${API_CONFIG.baseURL}/api/events/${encodeURIComponent(id)}`);
+        if (r.status === 404) return { event: null };
+        const d = await r.json();
+        if (d.success) return { event: d.event };
+    } catch (e) {}
+    return { error: true };
+}
 
 // Get ID from URL
 function getTicketIdFromUrl() {
@@ -174,39 +103,51 @@ async function verifyPayment(reference) {
     }
 }
 
-function showTicketDetails() {
+async function showTicketDetails() {
     const ticketId = getTicketIdFromUrl();
-    const ticket = tickets[ticketId];
+    const box = document.getElementById('ticketDetail');
+    box.innerHTML = '<p style="text-align:center;padding:3rem;color:#9a9a9a">Loading event...</p>';
+    const { event: ticket, error } = await fetchEvent(ticketId);
+
+    if (error) {
+        box.innerHTML = `
+            <div class="error-state">
+                <h2>Can't reach the server</h2>
+                <p>It may be waking up. Please wait a few seconds and try again.</p>
+                <a href="about.html?id=${esc(ticketId)}" class="back-link">Try again</a>
+            </div>`;
+        return;
+    }
 
     if (ticket) {
         document.getElementById('ticketDetail').innerHTML = `
             <div class="ticket-header">
-                <h1>${ticket.title}</h1>
-                <div class="ticket-badge">${ticket.ticketType}</div>
+                <h1>${esc(ticket.title)}</h1>
+                <div class="ticket-badge">${esc(ticket.ticketType)}</div>
             </div>
             
-            <img src="${ticket.image}" alt="${ticket.title}" class="ticket-image">
+            ${ticket.image ? `<img src="${esc(ticket.image)}" alt="${esc(ticket.title)}" class="ticket-image">` : ''}
             
             <div class="ticket-info-card">
                 <h3>About this event</h3>
-                <p>${ticket.description}</p>
+                <p>${esc(ticket.description)}</p>
                 
                 <div class="ticket-details">
                     <div class="detail-item">
                         <i class='bx bx-calendar'></i>
-                        <span>${ticket.date}</span>
+                        <span>${esc(ticket.date)}</span>
                     </div>
                     <div class="detail-item">
                         <i class='bx bx-time'></i>
-                        <span>${ticket.time}</span>
+                        <span>${esc(ticket.time)}</span>
                     </div>
                     <div class="detail-item">
                         <i class='bx bx-map'></i>
-                        <span>${ticket.location}</span>
+                        <span>${esc(ticket.location)}</span>
                     </div>
                     <div class="detail-item">
                         <i class='bx bx-category'></i>
-                        <span>${ticket.ticketType} Pass</span>
+                        <span>${esc(ticket.ticketType)} Pass</span>
                     </div>
                 </div>
                 
@@ -232,9 +173,9 @@ function showTicketDetails() {
                     </div>
                 </div>
                 
-                <button id="buyBtn" class="paystack-btn">
+                <button id="buyBtn" class="paystack-btn" ${ticket.soldOut ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}>
                     <i class='bx bx-credit-card'></i>
-                    Buy Ticket with Paystack
+                    ${ticket.soldOut ? 'Sold out' : 'Buy Ticket with Paystack'}
                 </button>
                 
                 <div id="paymentStatus"></div>
@@ -255,7 +196,7 @@ function showTicketDetails() {
         const totalEl = document.getElementById('total');
 
         document.getElementById('increase').addEventListener('click', () => {
-            quantity++;
+            if (quantity < 10) quantity++;
             updateQuantity(quantity);
         });
 
@@ -265,6 +206,7 @@ function showTicketDetails() {
         });
 
         document.getElementById('buyBtn').addEventListener('click', async () => {
+            if (ticket.soldOut) return;
             await handlePayment(ticket, quantity);
         });
 
@@ -277,8 +219,8 @@ function showTicketDetails() {
         document.getElementById("ticketDetail").innerHTML = `
             <div class="error-state">
                 <i class='bx bx-error-circle'></i>
-                <h2>Ticket Not Found</h2>
-                <p>The requested ticket could not be found.</p>
+                <h2>Event not found</h2>
+                <p>This event is no longer on sale.</p>
                 <a href="index.html" class="back-link">Back to Events</a>
             </div>
         `;
@@ -365,4 +307,4 @@ async function downloadAllTickets(tickets) {
     }
 }
 
-showTicketDetails();
+

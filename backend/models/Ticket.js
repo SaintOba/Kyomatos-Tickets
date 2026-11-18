@@ -25,7 +25,10 @@ const ticketSchema = new mongoose.Schema({
     downloadUrl: String,
     pdfFileName: String,
     paymentReference: String,
+    eventId: { type: Number, index: true },
+    complimentary: { type: Boolean, default: false },
     checkedInAt: { type: Date, default: null },
+    cancelledAt: { type: Date, default: null },
     generatedAt: { type: Date, default: Date.now },
     purchasedAt: { type: Date, default: Date.now },
 }, { timestamps: true });

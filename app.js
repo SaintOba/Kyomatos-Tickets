@@ -6,14 +6,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update nav based on login status
     updateNavigation();
 
-    const events = [
-      { id: 1, title: 'Tech Conference 2025', date: 'July 25, 2025', time: '02:00 PM - 06:00 PM WAT', location: 'Lagos Convention Center', price: 3000, image: 'images/tech.jpg' },
-      { id: 2, title: 'Music Festival', date: 'August 10, 2025', time: '09:00 PM - 04:00 AM WAT', location: 'Eko Atlantic', price: 5000, image: 'images/festiival.jpg' },
-      { id: 3, title: 'Art Exhibition', date: 'September 5, 2025', time: '12:00 PM - 04:00 PM WAT', location: 'Downtown Gallery', price: 2500, image: 'images/art.jpg' },
-      { id: 4, title: 'Afro Six6 House Party', date: 'December 5, 2025', time: '09:00 PM - Till Dawn WAT', location: '17 Jossy Empire', price: 15000, image: 'images/afro6.jpg' },
-      { id: 5, title: 'Pool Party', date: 'August 25, 2025', time: '04:00 PM - 12:00 PM WAT', location: 'Lagos Island', price: 7500, image: 'images/poolparty.jpg' },
-      { id: 6, title: 'BNB House Party', date: 'September 5, 2025', time: '09:00 PM - 04:00 AM WAT', location: '123 Main Street, Victoria Island', price: 10000, image: 'images/kickback.jpg' }
-    ];
+    let events = [];
+    const CACHE_KEY = 'kyoEventsCache';
+
+    function readCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || []; } catch (e) { return []; } }
+
+    async function loadEvents() {
+        eventList.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#9a9a9a;padding:2rem">Loading events...</p>';
+        try {
+            const r = await fetch(`${API_CONFIG.baseURL}/api/events`);
+            const d = await r.json();
+            if (!d.success) throw new Error('bad response');
+            events = d.events;
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(events)); } catch (e) {}
+        } catch (e) {
+            events = readCache(); // server asleep or offline: show the last events we saw
+            if (!events.length) {
+                eventList.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#9a9a9a;padding:2rem">Events are taking a moment to load. Please refresh in a few seconds.</p>';
+                return;
+            }
+        }
+        applySearch();
+    }
 
     function renderEvents(data) {
         eventList.innerHTML = '';
@@ -21,12 +35,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const card = document.createElement('div');
             card.className = 'event-card';
             card.innerHTML = `
-              <img src="${e.image}" alt="${e.title}" class="event-image"/>
-              <h4>${e.title}</h4>
-              <p>📅 ${e.date}</p>
-              <p>🕒 ${e.time}</p>
-              <p>📍 ${e.location}</p>
-              <p><strong>₦${e.price.toLocaleString()}</strong></p>
+              ${e.image ? `<img src="${esc(e.image)}" alt="${esc(e.title)}" class="event-image"/>` : ''}
+              <h4>${esc(e.title)}</h4>
+              <p>📅 ${esc(e.date)}</p>
+              <p>🕒 ${esc(e.time)}</p>
+              <p>📍 ${esc(e.location)}</p>
+              <p><strong>₦${Number(e.price).toLocaleString()}</strong>${e.soldOut ? ' · <span style="color:#E8200C">SOLD OUT</span>' : ''}</p>
               <button class="details-btn">View Details</button>
             `;
 
@@ -39,13 +53,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    document.getElementById('search').addEventListener('input', e => {
-        const query = e.target.value.toLowerCase();
-        const filtered = events.filter(ev => ev.title.toLowerCase().includes(query));
-        renderEvents(filtered);
-    });
+    function applySearch() {
+        const query = document.getElementById('search').value.toLowerCase();
+        renderEvents(events.filter(ev => ev.title.toLowerCase().includes(query)));
+    }
+    document.getElementById('search').addEventListener('input', applySearch);
 
-    renderEvents(events);
+    loadEvents();
 
     function updateNavigation() {
     if (window.KyoNav) KyoNav.refresh();

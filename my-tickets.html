@@ -365,7 +365,7 @@
                 return `
                 <div class="ticket-card">
                     <h3>${esc(title)}
-                        <span class="ticket-status status-active">ACTIVE</span>
+                        <span class="ticket-status status-active">${ticket.cancelledAt ? 'CANCELLED' : ticket.checkedInAt ? 'USED' : 'ACTIVE'}</span>
                     </h3>
                     
                     <div class="ticket-info">

@@ -9,7 +9,9 @@ const sendEmail = require("./utils/sendEmail");
 const connectDB = require("./config/db");
 const Ticket = require("./models/Ticket");
 const User = require("./models/User");
-const EVENTS = require("./data/events");
+const Event = require("./models/Event");
+const seedEvents = require("./utils/seedEvents");
+const createAdminRouter = require("./routes/admin");
 const requireAuth = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const crypto = require("crypto");
@@ -24,7 +26,7 @@ if (!process.env.JWT_SECRET) {
 const MAX_TICKETS_PER_ORDER = 10;
 
 // Connect to MongoDB so tickets survive restarts/redeploys
-connectDB();
+connectDB().then(seedEvents);
 
 // Global error handlers to avoid process exit on unhandled errors
 process.on('unhandledRejection', (reason, promise) => {
@@ -408,12 +410,11 @@ function generateProfessionalPDFTicket(ticket) {
 // Paystack: Initialize payment (login required, price comes from the server)
 app.post("/api/pay/initialize", rateLimit({ windowMs: 60 * 60 * 1000, max: 30 }), requireAuth, async (req, res) => {
   try {
-    const { eventId } = req.body;
     const quantity = parseInt(req.body.quantity, 10);
-    const event = EVENTS[eventId];
+    const event = await Event.findOne({ id: Number(req.body.eventId), active: true, deleted: { $ne: true } }).lean();
 
     if (!event) {
-      return res.status(400).json({ success: false, message: "Unknown event" });
+      return res.status(400).json({ success: false, message: "This event is not on sale" });
     }
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_TICKETS_PER_ORDER) {
       return res.status(400).json({
@@ -425,6 +426,17 @@ app.post("/api/pay/initialize", rateLimit({ windowMs: 60 * 60 * 1000, max: 30 })
     const user = await User.findById(req.user.userId).lean();
     if (!user) {
       return res.status(401).json({ success: false, message: "Account not found" });
+    }
+
+    if (event.capacity != null) {
+      const sold = await Ticket.countDocuments({ eventId: event.id, cancelledAt: null });
+      if (sold + quantity > event.capacity) {
+        const left = Math.max(0, event.capacity - sold);
+        return res.status(409).json({
+          success: false,
+          message: left === 0 ? "Sorry, this event is sold out" : `Only ${left} ticket(s) left`,
+        });
+      }
     }
 
     const amount = event.price * quantity; // naira, computed on the server
@@ -439,6 +451,7 @@ app.post("/api/pay/initialize", rateLimit({ windowMs: 60 * 60 * 1000, max: 30 })
         metadata: {
           userId: String(user._id),
           eventId: event.id,
+          price: event.price, // price at the moment of purchase (a later price change won't break this order)
           quantity,
           attendeeName: user.name,
           attendeePhone: user.phone || "",
@@ -479,20 +492,21 @@ async function fulfilOrder(paystackData) {
     if (existing.length > 0) return existing;
 
     const meta = paystackData.metadata || {};
-    const event = EVENTS[meta.eventId];
+    const event = await Event.findOne({ id: Number(meta.eventId) }).lean();
     const quantity = parseInt(meta.quantity, 10);
-    if (!event || !Number.isInteger(quantity) || quantity < 1) {
+    const paidPrice = Number(meta.price);
+    if (!event || !meta.userId || !Number.isInteger(quantity) || quantity < 1 || !(paidPrice >= 0)) {
       throw new Error("Payment metadata is invalid");
     }
 
-    const expectedKobo = event.price * quantity * 100;
+    const expectedKobo = paidPrice * quantity * 100;
     if (paystackData.amount !== expectedKobo) {
       throw new Error(`Amount mismatch: paid ${paystackData.amount}, expected ${expectedKobo}`);
     }
 
     return generateTicketsAfterPayment({
       email: String(paystackData.customer?.email || "").toLowerCase(),
-      event,
+      event: { ...event, price: paidPrice },
       quantity,
       attendeeName: meta.attendeeName,
       attendeePhone: meta.attendeePhone,
@@ -570,8 +584,35 @@ app.post("/api/pay/webhook", async (req, res) => {
   }
 });
 
-// Generate tickets (PDF + DB + email) for a paid order
-async function generateTicketsAfterPayment({ email, event, quantity, attendeeName, attendeePhone, paymentReference }) {
+// Email one ticket (with its PDF attached) to the attendee
+async function emailTicket(ticket, event) {
+  const fullName = ticket.attendee.fullName;
+  const emailHtml = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#111;color:#fff;border:1px solid #CC1100">
+      <h1 style="text-align:center;color:#E8200C;letter-spacing:2px">YOUR TICKET IS READY</h1>
+      <p>Hi ${escapeHtml(fullName)},</p>
+      <p>Your ticket for <strong>${escapeHtml(event.title)}</strong> is attached.</p>
+      <div style="background:#1b1b1b;padding:15px;border-left:3px solid #CC1100">
+        <p><strong>Date:</strong> ${escapeHtml(event.date)}</p>
+        <p><strong>Time:</strong> ${escapeHtml(event.time)}</p>
+        <p><strong>Venue:</strong> ${escapeHtml(event.location)}</p>
+        <p><strong>Ticket type:</strong> ${escapeHtml(String(event.ticketType).toUpperCase())}</p>
+        <p><strong>Price:</strong> ${ticket.complimentary ? "Complimentary" : "&#8358;" + Number(event.price).toLocaleString()}</p>
+      </div>
+      <p>Present the QR code on this ticket at the entrance on the event day.</p>
+      <p style="border-top:1px solid #444;padding-top:15px"><strong>Ticket ID:</strong> ${escapeHtml(ticket.ticketId)}</p>
+      <p style="color:#999;font-size:12px">Kyomatos - Ride the Wave</p>
+    </div>`;
+
+  const filePath = path.join(pdfsDir, path.basename(ticket.pdfFileName));
+  if (!fs.existsSync(filePath)) await generateProfessionalPDFTicket(ticket);
+  return sendEmail(ticket.attendee.email, `Your ${event.title} Ticket - Kyomatos`, emailHtml, [
+    { filename: `${event.title.replace(/\s+/g, "_")}_${ticket.ticketId}.pdf`, path: filePath },
+  ]);
+}
+
+// Generate tickets (PDF + DB + email). Used for paid orders and for tickets the admin issues.
+async function generateTicketsAfterPayment({ email, event, quantity, attendeeName, attendeePhone, paymentReference, complimentary = false, sendEmail: shouldEmail = true }) {
   const tickets = [];
 
   for (let i = 0; i < quantity; i++) {
@@ -582,11 +623,13 @@ async function generateTicketsAfterPayment({ email, event, quantity, attendeeNam
 
     const ticket = {
       ticketId,
+      eventId: event.id,
+      complimentary,
       event: { title: event.title, date: event.date, time: event.time, location: event.location },
       attendee: { fullName: attendeeName || email.split("@")[0], email, phone: attendeePhone || "" },
       ticketDetails: {
         type: event.ticketType,
-        price: event.price,
+        price: complimentary ? 0 : event.price,
         seatNumber: `${row}-${seat}`,
         row, seat, gate,
       },
@@ -601,30 +644,7 @@ async function generateTicketsAfterPayment({ email, event, quantity, attendeeNam
     ticket.pdfFileName = pdfResult.fileName;
 
     await Ticket.create(ticket); // let failures surface so the order can be retried
-
-    const emailHtml = `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#1a1a1a;color:#fff;border-radius:12px">
-        <h1 style="text-align:center;color:#E8200C">Your Ticket is Ready!</h1>
-        <p>Hi ${escapeHtml(ticket.attendee.fullName)},</p>
-        <p>Thank you for your purchase! Your ticket for <strong>${escapeHtml(event.title)}</strong> is attached.</p>
-        <div style="background:rgba(204,17,0,.15);padding:15px;border-radius:8px">
-          <p><strong>Date:</strong> ${escapeHtml(event.date)}</p>
-          <p><strong>Time:</strong> ${escapeHtml(event.time)}</p>
-          <p><strong>Venue:</strong> ${escapeHtml(event.location)}</p>
-          <p><strong>Ticket type:</strong> ${escapeHtml(String(event.ticketType).toUpperCase())}</p>
-          <p><strong>Price:</strong> &#8358;${event.price.toLocaleString()}</p>
-        </div>
-        <p>Present this ticket at the entrance on the event day.</p>
-        <p style="border-top:1px solid #444;padding-top:15px"><strong>Ticket ID:</strong> ${ticketId}</p>
-      </div>`;
-
-    await sendEmail(email, `Your ${event.title} Ticket - Kyomatos`, emailHtml, [
-      {
-        filename: `${event.title.replace(/\s+/g, "_")}_${ticketId}.pdf`,
-        path: path.join(pdfsDir, pdfResult.fileName),
-      },
-    ]);
-
+    if (shouldEmail) await emailTicket(ticket, event);
     tickets.push(ticket);
   }
 
@@ -643,6 +663,9 @@ app.get("/api/tickets/download/:ticketId", requireAuth, async (req, res) => {
     // Same response for "missing" and "not yours" so ids can't be probed
     if (!ticket || String(ticket.attendee.email).toLowerCase() !== req.user.email) {
       return res.status(404).json({ success: false, message: "Ticket not found" });
+    }
+    if (ticket.cancelledAt) {
+      return res.status(410).json({ success: false, message: "This ticket was cancelled" });
     }
 
     const filePath = path.join(pdfsDir, path.basename(ticket.pdfFileName || ""));
@@ -663,6 +686,9 @@ app.get("/api/tickets/:ticketId/qr", requireAuth, async (req, res) => {
     const ticket = await Ticket.findOne({ ticketId: req.params.ticketId }).lean();
     if (!ticket || String(ticket.attendee.email).toLowerCase() !== req.user.email) {
       return res.status(404).json({ success: false, message: "Ticket not found" });
+    }
+    if (ticket.cancelledAt) {
+      return res.status(410).json({ success: false, message: "This ticket was cancelled" });
     }
     res.set("Content-Type", "image/png");
     res.set("Cache-Control", "private, max-age=3600");
@@ -692,7 +718,7 @@ app.post("/api/checkin", rateLimit({ windowMs: 60 * 1000, max: 120 }), async (re
 
     // Atomic: only the first scan can flip checkedInAt from null
     const ticket = await Ticket.findOneAndUpdate(
-      { ticketId, checkedInAt: null },
+      { ticketId, checkedInAt: null, cancelledAt: null },
       { checkedInAt: new Date() },
       { new: true },
     ).lean();
@@ -706,6 +732,9 @@ app.post("/api/checkin", rateLimit({ windowMs: 60 * 1000, max: 120 }), async (re
 
     const used = await Ticket.findOne({ ticketId }).lean();
     if (!used) return res.status(404).json({ success: false, valid: false, message: "Ticket not found" });
+    if (used.cancelledAt) {
+      return res.status(410).json({ success: false, valid: false, message: "Ticket was cancelled" });
+    }
     return res.status(409).json({
       success: false, valid: true, message: "Ticket already used",
       checkedInAt: used.checkedInAt,
@@ -728,6 +757,49 @@ app.get("/api/tickets/user", requireAuth, async (req, res) => {
     res.status(500).json({ success: false, message: "Could not load tickets" });
   }
 });
+
+// Public: events currently on sale
+const publicEvent = (e, sold) => ({
+  id: e.id, title: e.title, date: e.date, time: e.time, location: e.location, venueAddress: e.venueAddress,
+  description: e.description, image: e.image, price: e.price, ticketType: e.ticketType,
+  soldOut: e.capacity != null && sold >= e.capacity,
+});
+
+async function soldCounts() {
+  const rows = await Ticket.aggregate([
+    { $match: { cancelledAt: null } },
+    { $group: { _id: "$eventId", n: { $sum: 1 } } },
+  ]);
+  return Object.fromEntries(rows.map((r) => [r._id, r.n]));
+}
+
+app.get("/api/events", async (req, res) => {
+  try {
+    const [events, counts] = await Promise.all([
+      Event.find({ active: true, deleted: { $ne: true } }).sort({ id: 1 }).lean(),
+      soldCounts(),
+    ]);
+    res.set("Cache-Control", "public, max-age=30");
+    res.json({ success: true, events: events.map((e) => publicEvent(e, counts[e.id] || 0)) });
+  } catch (err) {
+    console.error("Events list error:", err.message);
+    res.status(500).json({ success: false, message: "Could not load events" });
+  }
+});
+
+app.get("/api/events/:id", async (req, res) => {
+  try {
+    const e = await Event.findOne({ id: Number(req.params.id), active: true, deleted: { $ne: true } }).lean();
+    if (!e) return res.status(404).json({ success: false, message: "Event not found" });
+    const counts = await soldCounts();
+    res.json({ success: true, event: publicEvent(e, counts[e.id] || 0) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Could not load event" });
+  }
+});
+
+// Admin area (ADMIN_KEY protected)
+app.use("/api/admin", createAdminRouter({ generateTicketsAfterPayment, emailTicket, generateProfessionalPDFTicket }));
 
 // Health check
 app.get("/health", (req, res) => {
