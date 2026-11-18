@@ -232,8 +232,7 @@ module.exports = function createAdminRouter({ generateTicketsAfterPayment, email
       let emailed = false;
       if (req.body.sendEmail !== false) {
         try {
-          const results = [];
-          for (const t of tickets) results.push(await emailTicket(t, { ...ev, price: 0 }));
+          const results = await Promise.all(tickets.map((t) => emailTicket(t, { ...ev, price: 0 }).catch(() => ({ success: false }))));
           emailed = results.every((r) => r && r.success !== false);
         } catch (e) { emailed = false; }
       }
