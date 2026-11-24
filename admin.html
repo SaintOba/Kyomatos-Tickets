@@ -109,6 +109,8 @@
                             <div class="field"><label for="f_location">Venue</label><input id="f_location" maxlength="120"></div>
                             <div class="field"><label for="f_venueAddress">Address (optional)</label><input id="f_venueAddress" maxlength="200"></div>
                             <div class="field"><label for="f_price">Ticket price (₦) *</label><input id="f_price" type="number" min="0" step="1" required></div>
+                            <div class="field"><label for="f_organizer">Organiser (whose event)</label><input id="f_organizer" maxlength="100" placeholder="e.g. Afro Six6 Events"><small>Used on the dashboard to show how much you owe them.</small></div>
+                            <div class="field"><label for="f_serviceFee">Your service fee per ticket (₦)</label><input id="f_serviceFee" type="number" min="0" max="5000" step="50" placeholder="500"><small>Buyer pays price + this fee. You keep the fee, the organiser keeps the full price. Use ₦500–₦1000.</small></div>
                             <div class="field"><label for="f_ticketType">Ticket type</label><input id="f_ticketType" list="types" maxlength="30" placeholder="standard"><datalist id="types"><option value="standard"><option value="vip"><option value="premium"><option value="early bird"></datalist></div>
                             <div class="field"><label for="f_capacity">Capacity</label><input id="f_capacity" type="number" min="1" step="1" placeholder="Empty = unlimited"><small>Sales stop when this many tickets are sold.</small></div>
                             <div class="field"><label for="f_image">Image link</label><input id="f_image" maxlength="300" placeholder="https://..."><small>Use an https:// image link (e.g. from Imgur or Cloudinary).</small></div>
@@ -239,15 +241,15 @@
             try {
                 const d = await api('/stats'); const t = d.totals;
                 $('tiles').innerHTML = [
-                    ['red', naira(t.revenue), 'Revenue'], ['', t.sold, 'Tickets sold'], ['', t.checkedIn, 'Checked in'],
+                    ['red', naira(t.fees), 'Your fees earned'], ['', naira(t.revenue), 'Ticket sales (owed to organisers)'], ['', t.sold, 'Tickets sold'], ['', t.checkedIn, 'Checked in'],
                     ['', t.complimentary, 'Free tickets issued'], ['', t.cancelled, 'Cancelled'], ['', t.eventsLive, 'Events on sale']
                 ].map((x) => `<div class="tile ${x[0]}"><div class="n">${esc(x[1])}</div><div class="l">${esc(x[2])}</div></div>`).join('');
-                $('salesTbl').innerHTML = '<tr><th>Event</th><th class="num">Price</th><th>Sold</th><th class="num">Revenue</th><th class="num">Checked in</th><th>Status</th></tr>' +
+                $('salesTbl').innerHTML = '<tr><th>Event</th><th>Organiser</th><th class="num">Price + fee</th><th>Sold</th><th class="num">Owed to organiser</th><th class="num">Your fees</th><th class="num">Checked in</th><th>Status</th></tr>' +
                     (d.events.map((e) => {
                         const pct = e.capacity ? Math.min(100, Math.round((e.sold / e.capacity) * 100)) : null;
-                        return `<tr><td>${esc(e.title)}</td><td class="num">${naira(e.price)}</td>
+                        return `<tr><td>${esc(e.title)}</td><td>${esc(e.organizer || '-')}</td><td class="num">${naira(e.price)} + ${naira(e.feePerTicket)}</td>
                             <td>${e.sold}${e.capacity ? ' / ' + e.capacity : ''}${pct !== null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</td>
-                            <td class="num">${naira(e.revenue)}</td><td class="num">${e.checkedIn}</td>
+                            <td class="num">${naira(e.revenue)}</td><td class="num">${naira(e.fees)}</td><td class="num">${e.checkedIn}</td>
                             <td><span class="pill ${e.active ? 'ok' : 'warn'}">${e.active ? 'On sale' : 'Closed'}</span></td></tr>`;
                     }).join('') || '<tr><td class="muted">No events yet.</td></tr>');
             } catch (e) { fail(e); }
@@ -291,11 +293,11 @@
                 }
             } catch (err) { fail(err); }
         });
-        const F = ['title', 'dateISO', 'time', 'location', 'venueAddress', 'price', 'ticketType', 'capacity', 'image', 'description'];
+        const F = ['title', 'dateISO', 'time', 'location', 'venueAddress', 'price', 'organizer', 'serviceFee', 'ticketType', 'capacity', 'image', 'description'];
         function openForm(ev) {
             editingId = ev ? ev.id : null;
             $('eventFormTitle').textContent = ev ? 'Edit event' : 'Add event';
-            F.forEach((f) => { $('f_' + f).value = ev && ev[f] != null ? ev[f] : ''; });
+            F.forEach((f) => { $('f_' + f).value = ev && ev[f] != null ? ev[f] : (f === 'serviceFee' ? '500' : ''); });
             $('f_active').checked = ev ? !!ev.active : true;
             $('f_dateNote').textContent = ev && ev.date && !ev.dateISO ? 'Currently shown as: ' + ev.date + '. Pick a date to replace it.' : '';
             $('eventForm').classList.remove('hidden'); $('eventForm').scrollIntoView({ behavior: 'smooth', block: 'start' });

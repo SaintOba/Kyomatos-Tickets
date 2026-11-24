@@ -16,6 +16,7 @@ const ticketSchema = new mongoose.Schema({
     ticketDetails: {
         type: { type: String },
         price: Number,
+        fee: Number, // Kyomatos service fee paid on top of the price
         seatNumber: String,
         row: String,
         seat: String,

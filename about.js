@@ -167,6 +167,7 @@ async function showTicketDetails() {
                         </button>
                     </div>
                     
+                    <div id="feeNote" class="muted" style="font-size:.85rem;color:#aaa;text-align:right;margin-bottom:.4rem"></div>
                     <div class="total-price">
                         <span>Total:</span>
                         <span id="total" class="total-amount">₦${ticket.price.toLocaleString()}</span>
@@ -194,6 +195,8 @@ async function showTicketDetails() {
         let quantity = 1;
         const quantityEl = document.getElementById('quantity');
         const totalEl = document.getElementById('total');
+        const feeEl = document.getElementById('feeNote');
+        let feeSeq = 0;
 
         document.getElementById('increase').addEventListener('click', () => {
             if (quantity < 10) quantity++;
@@ -210,10 +213,20 @@ async function showTicketDetails() {
             await handlePayment(ticket, quantity);
         });
 
-        function updateQuantity(qty) {
+        async function updateQuantity(qty) {
             quantityEl.textContent = qty;
-            totalEl.textContent = `₦${(ticket.price * qty).toLocaleString()}`;
+            const sub = ticket.price * qty;
+            totalEl.textContent = `₦${sub.toLocaleString()}`;
+            const seq = ++feeSeq;
+            try {
+                const r = await fetch(`${API_CONFIG.baseURL}/api/fee-quote?eventId=${encodeURIComponent(ticket.id)}&quantity=${qty}`);
+                const q = await r.json();
+                if (seq !== feeSeq || !q.success) return;
+                feeEl.textContent = q.fee > 0 ? `Service fee (₦${q.feePerTicket.toLocaleString()} per ticket): ₦${q.fee.toLocaleString()}` : '';
+                totalEl.textContent = `₦${q.total.toLocaleString()}`;
+            } catch (e) { /* keep subtotal display */ }
         }
+        updateQuantity(1);
 
     } else {
         document.getElementById("ticketDetail").innerHTML = `
@@ -306,5 +319,3 @@ async function downloadAllTickets(tickets) {
         await API_CONFIG.downloadTicket(ticket.ticketId);
     }
 }
-
-

@@ -11,6 +11,8 @@ const eventSchema = new mongoose.Schema({
     description: { type: String, default: "" },
     image: { type: String, default: "" },     // https URL or images/xyz.jpg
     price: { type: Number, required: true, min: 0 }, // naira
+    organizer: { type: String, default: "" },   // whose event this is (for payouts)
+    serviceFee: { type: Number, default: 500, min: 0 }, // Kyomatos fee per ticket, paid by the buyer on top of the price
     ticketType: { type: String, default: "standard" },
     capacity: { type: Number, default: null }, // null = unlimited
     active: { type: Boolean, default: true },  // false = sales closed / hidden from the site

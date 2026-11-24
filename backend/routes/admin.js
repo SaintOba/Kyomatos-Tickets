@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const Event = require("../models/Event");
 const Ticket = require("../models/Ticket");
 const rateLimit = require("../utils/rateLimit");
+const { feePerTicket, DEFAULT_FEE } = require("../utils/fees");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -64,6 +65,16 @@ function cleanEvent(b, { partial = false } = {}) {
       d.capacity = c;
     }
   }
+  if (b.organizer !== undefined) {
+    const v = String(b.organizer).trim();
+    if (v.length > 100) return { error: "Organiser name is too long (max 100)" };
+    d.organizer = v;
+  }
+  if (b.serviceFee !== undefined && b.serviceFee !== "" && b.serviceFee !== null) {
+    const f = Number(b.serviceFee);
+    if (!Number.isFinite(f) || f < 0 || f > 5000) return { error: "Service fee must be from 0 to 5,000" };
+    d.serviceFee = Math.round(f);
+  }
   if (b.image !== undefined) {
     const v = String(b.image).trim();
     if (v && !IMAGE_RE.test(v)) return { error: "Image must be an https:// link or an images/ file path" };
@@ -115,7 +126,7 @@ module.exports = function createAdminRouter({ generateTicketsAfterPayment, email
 
   const slim = (t) => ({
     ticketId: t.ticketId, eventId: t.eventId ?? null, eventTitle: t.event?.title, name: t.attendee?.fullName,
-    email: t.attendee?.email, phone: t.attendee?.phone, type: t.ticketDetails?.type, price: t.ticketDetails?.price ?? 0,
+    email: t.attendee?.email, phone: t.attendee?.phone, type: t.ticketDetails?.type, price: t.ticketDetails?.price ?? 0, fee: t.ticketDetails?.fee ?? 0,
     complimentary: !!t.complimentary, paymentReference: t.paymentReference, purchasedAt: t.purchasedAt,
     checkedInAt: t.checkedInAt || null, cancelledAt: t.cancelledAt || null, status: statusOf(t),
   });
@@ -127,16 +138,17 @@ module.exports = function createAdminRouter({ generateTicketsAfterPayment, email
     try {
       const { events, keyOf } = await eventIndex();
       const tickets = await Ticket.find({}).lean();
-      const per = Object.fromEntries(events.map((e) => [e.id, { id: e.id, title: e.title, price: e.price, active: e.active, capacity: e.capacity ?? null, sold: 0, revenue: 0, checkedIn: 0, complimentary: 0, cancelled: 0 }]));
-      const totals = { sold: 0, revenue: 0, checkedIn: 0, complimentary: 0, cancelled: 0, eventsLive: events.filter((e) => e.active).length };
+      const per = Object.fromEntries(events.map((e) => [e.id, { id: e.id, title: e.title, price: e.price, organizer: e.organizer || '', feePerTicket: feePerTicket(e), active: e.active, capacity: e.capacity ?? null, sold: 0, revenue: 0, fees: 0, checkedIn: 0, complimentary: 0, cancelled: 0 }]));
+      const totals = { sold: 0, revenue: 0, fees: 0, checkedIn: 0, complimentary: 0, cancelled: 0, eventsLive: events.filter((e) => e.active).length };
       for (const t of tickets) {
         const row = per[keyOf(t)];
         if (t.cancelledAt) { totals.cancelled++; if (row) row.cancelled++; continue; }
         const price = t.complimentary ? 0 : (t.ticketDetails?.price || 0);
-        totals.sold++; totals.revenue += price;
+        const fee = t.complimentary ? 0 : (t.ticketDetails?.fee || 0);
+        totals.sold++; totals.revenue += price; totals.fees += fee;
         if (t.checkedInAt) totals.checkedIn++;
         if (t.complimentary) totals.complimentary++;
-        if (row) { row.sold++; row.revenue += price; if (t.checkedInAt) row.checkedIn++; if (t.complimentary) row.complimentary++; }
+        if (row) { row.sold++; row.revenue += price; row.fees += fee; if (t.checkedInAt) row.checkedIn++; if (t.complimentary) row.complimentary++; }
       }
       res.json({ success: true, totals, events: Object.values(per) });
     } catch (err) {
@@ -148,7 +160,7 @@ module.exports = function createAdminRouter({ generateTicketsAfterPayment, email
   // ---------- events ----------
   router.get("/events", async (req, res) => {
     const { events } = await eventIndex();
-    res.json({ success: true, events });
+    res.json({ success: true, events: events.map((e) => ({ ...e, serviceFee: e.serviceFee ?? DEFAULT_FEE, organizer: e.organizer || "" })) });
   });
 
   router.post("/events", async (req, res) => {
@@ -298,10 +310,10 @@ module.exports = function createAdminRouter({ generateTicketsAfterPayment, email
     try {
       const { filter, empty } = await ticketFilter(req.query);
       const rows = empty ? [] : await Ticket.find(filter).sort({ purchasedAt: -1 }).limit(50000).lean();
-      const head = ["Ticket ID", "Event", "Name", "Email", "Phone", "Type", "Price (NGN)", "Source", "Payment reference", "Purchased", "Status", "Checked in at"];
+      const head = ["Ticket ID", "Event", "Name", "Email", "Phone", "Type", "Price (NGN)", "Service fee (NGN)", "Source", "Payment reference", "Purchased", "Status", "Checked in at"];
       const lines = [head.map(csvCell).join(",")];
       for (const t of rows.map(slim)) {
-        lines.push([t.ticketId, t.eventTitle, t.name, t.email, t.phone, t.type, t.price, t.complimentary ? "Complimentary" : "Paid",
+        lines.push([t.ticketId, t.eventTitle, t.name, t.email, t.phone, t.type, t.price, t.fee, t.complimentary ? "Complimentary" : "Paid",
           t.paymentReference, t.purchasedAt, t.status, t.checkedInAt ? new Date(t.checkedInAt).toISOString() : ""].map(csvCell).join(","));
       }
       res.set("Content-Type", "text/csv; charset=utf-8");

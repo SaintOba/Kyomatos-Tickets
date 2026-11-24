@@ -16,6 +16,7 @@ const requireAuth = require("./middleware/auth");
 const authRoutes = require("./routes/auth");
 const crypto = require("crypto");
 const { signQr, verifyQr } = require("./utils/qr");
+const { serviceFee, feePerTicket } = require("./utils/fees");
 const rateLimit = require("./utils/rateLimit");
 require("dotenv").config();
 
@@ -408,6 +409,19 @@ function generateProfessionalPDFTicket(ticket) {
 }
 
 // Paystack: Initialize payment (login required, price comes from the server)
+app.get("/api/fee-quote", async (req, res) => {
+  try {
+    const event = await Event.findOne({ id: Number(req.query.eventId), active: true, deleted: { $ne: true } }).lean();
+    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+    const quantity = Math.min(MAX_TICKETS_PER_ORDER, Math.max(1, parseInt(req.query.quantity, 10) || 1));
+    const subtotal = event.price * quantity;
+    const fee = serviceFee(event, quantity);
+    res.json({ success: true, subtotal, fee, feePerTicket: feePerTicket(event), total: subtotal + fee });
+  } catch (e) {
+    res.status(500).json({ success: false, message: "Could not calculate the total" });
+  }
+});
+
 app.post("/api/pay/initialize", rateLimit({ windowMs: 60 * 60 * 1000, max: 30 }), requireAuth, async (req, res) => {
   try {
     const quantity = parseInt(req.body.quantity, 10);
@@ -439,7 +453,9 @@ app.post("/api/pay/initialize", rateLimit({ windowMs: 60 * 60 * 1000, max: 30 })
       }
     }
 
-    const amount = event.price * quantity; // naira, computed on the server
+    const subtotal = event.price * quantity;
+    const fee = serviceFee(event, quantity);
+    const amount = subtotal + fee; // naira, computed on the server
     const callbackUrl = `${FRONTEND_URL}/about.html?id=${event.id}`;
 
     const response = await axios.post(
@@ -451,6 +467,7 @@ app.post("/api/pay/initialize", rateLimit({ windowMs: 60 * 60 * 1000, max: 30 })
         metadata: {
           userId: String(user._id),
           eventId: event.id,
+          fee, // Kyomatos service fee for the whole order (naira)
           price: event.price, // price at the moment of purchase (a later price change won't break this order)
           quantity,
           attendeeName: user.name,
@@ -499,7 +516,9 @@ async function fulfilOrder(paystackData) {
       throw new Error("Payment metadata is invalid");
     }
 
-    const expectedKobo = paidPrice * quantity * 100;
+    const fee = Number(meta.fee || 0);
+    if (!(fee >= 0)) throw new Error("Payment metadata is invalid");
+    const expectedKobo = (paidPrice * quantity + fee) * 100;
     if (paystackData.amount !== expectedKobo) {
       throw new Error(`Amount mismatch: paid ${paystackData.amount}, expected ${expectedKobo}`);
     }
@@ -511,6 +530,7 @@ async function fulfilOrder(paystackData) {
       attendeeName: meta.attendeeName,
       attendeePhone: meta.attendeePhone,
       paymentReference: reference,
+      feePerTicket: fee / quantity,
     });
   })();
 
@@ -612,7 +632,7 @@ async function emailTicket(ticket, event) {
 }
 
 // Generate tickets (PDF + DB + email). Used for paid orders and for tickets the admin issues.
-async function generateTicketsAfterPayment({ email, event, quantity, attendeeName, attendeePhone, paymentReference, complimentary = false, sendEmail: shouldEmail = true }) {
+async function generateTicketsAfterPayment({ email, event, quantity, attendeeName, attendeePhone, paymentReference, complimentary = false, sendEmail: shouldEmail = true, feePerTicket = 0 }) {
   const tickets = [];
 
   for (let i = 0; i < quantity; i++) {
@@ -630,6 +650,7 @@ async function generateTicketsAfterPayment({ email, event, quantity, attendeeNam
       ticketDetails: {
         type: event.ticketType,
         price: complimentary ? 0 : event.price,
+        fee: complimentary ? 0 : Math.round(Number(feePerTicket) || 0),
         seatNumber: `${row}-${seat}`,
         row, seat, gate,
       },
@@ -761,7 +782,7 @@ app.get("/api/tickets/user", requireAuth, async (req, res) => {
 // Public: events currently on sale
 const publicEvent = (e, sold) => ({
   id: e.id, title: e.title, date: e.date, time: e.time, location: e.location, venueAddress: e.venueAddress,
-  description: e.description, image: e.image, price: e.price, ticketType: e.ticketType,
+  description: e.description, image: e.image, price: e.price, ticketType: e.ticketType, organizer: e.organizer || "", feePerTicket: feePerTicket(e),
   soldOut: e.capacity != null && sold >= e.capacity,
 });
 
